@@ -408,6 +408,39 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;"
 const toMs = v => v?.toMillis ? v.toMillis() : (typeof v==="number"? v : 0);
 const fmtDate = v => { const ms=toMs(v); if(!ms) return ""; return new Date(ms).toLocaleDateString(LANG==="ar"?"ar-SY-u-nu-latn":"en-GB",{day:"numeric",month:"short",year:"numeric"}); };
 const fmtDateTime = v => { const ms=toMs(v); if(!ms) return ""; return new Date(ms).toLocaleString(LANG==="ar"?"ar-SY-u-nu-latn":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); };
+const ERR = {
+  ar:{"auth/invalid-credential":"البريد أو كلمة المرور غير صحيحة.","auth/wrong-password":"كلمة المرور غير صحيحة.","auth/user-not-found":"لا يوجد مستخدم بهذا البريد. أضفه في Firebase ← Authentication ← Users.",
+      "auth/invalid-email":"صيغة البريد غير صحيحة.","auth/operation-not-allowed":"تسجيل الدخول بالبريد غير مفعّل. فعّل Email/Password في Firebase ← Authentication ← Sign-in method.",
+      "auth/configuration-not-found":"خدمة Authentication غير مفعّلة. افتح Firebase ← Authentication واضغط Get started ثم فعّل Email/Password.",
+      "auth/unauthorized-domain":"هذا الموقع غير مسموح. أضف morshaheen-ux.github.io في Firebase ← Authentication ← Settings ← Authorized domains.",
+      "auth/too-many-requests":"محاولات كثيرة. انتظر قليلًا ثم حاول مجددًا.","auth/network-request-failed":"لا يوجد اتصال بالإنترنت أو أن Firebase محجوب على هذه الشبكة.",
+      "auth/api-key-not-valid":"مفتاح apiKey في firebase-config.js غير صحيح.",
+      "permission-denied":"قاعدة البيانات رفضت الوصول. تأكد من نشر القواعد (Rules) في Firestore.","not-found":"قاعدة بيانات Firestore غير موجودة. أنشئها من Firebase ← Firestore Database ← Create database.",
+      "failed-precondition":"قاعدة بيانات Firestore غير جاهزة. أنشئها من Firebase ← Firestore Database ← Create database.","unavailable":"تعذّر الوصول إلى Firestore. تحقق من الاتصال."},
+  en:{"auth/invalid-credential":"Wrong email or password.","auth/wrong-password":"Wrong password.","auth/user-not-found":"No user with this email. Add it in Firebase → Authentication → Users.",
+      "auth/invalid-email":"That email address isn't valid.","auth/operation-not-allowed":"Email/password sign-in is off. Turn it on in Firebase → Authentication → Sign-in method.",
+      "auth/configuration-not-found":"Authentication isn't set up. In Firebase open Authentication, click Get started and enable Email/Password.",
+      "auth/unauthorized-domain":"This site isn't allowed yet. Add morshaheen-ux.github.io in Firebase → Authentication → Settings → Authorized domains.",
+      "auth/too-many-requests":"Too many attempts. Wait a moment and try again.","auth/network-request-failed":"No connection, or Firebase is blocked on this network.",
+      "auth/api-key-not-valid":"The apiKey in firebase-config.js is wrong.",
+      "permission-denied":"The database refused access. Check the Firestore rules are published.","not-found":"The Firestore database doesn't exist. Create it in Firebase → Firestore Database → Create database.",
+      "failed-precondition":"The Firestore database isn't ready. Create it in Firebase → Firestore Database → Create database.","unavailable":"Can't reach Firestore. Check the connection."}
+};
+function explainError(err){
+  let code = err?.code || ""; const msg = String(err?.message||"");
+  if (/api-key-not-valid/.test(code+msg)) code = "auth/api-key-not-valid";
+  if (/CONFIGURATION_NOT_FOUND/.test(msg)) code = "auth/configuration-not-found";
+  if (/database \(default\) does not exist|NOT_FOUND/i.test(msg)) code = "not-found";
+  return (ERR[LANG][code] || (LANG==="ar"?"خطأ: ":"Error: ") + (code||msg)) + (code? `  [${code}]`:"");
+}
+function dbError(err){
+  console.error(err);
+  let el = $("#dbErr");
+  if (!el){ el=document.createElement("div"); el.id="dbErr"; el.setAttribute("role","alert");
+    el.style.cssText="background:#FDECEC;color:#8A1C1C;border:1px solid #F3B4B4;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-weight:600";
+    $("main").prepend(el); }
+  el.textContent = explainError(err);
+}
 function toast(msg){ const el=document.createElement("div"); el.className="toast"; el.textContent=msg; el.setAttribute("role","status"); document.body.appendChild(el); setTimeout(()=>el.remove(),2600); }
 const myAgentId = () => { const e=(state.user?.email||"").toLowerCase(); for (const [id,a] of state.agents) if((a.email||"").toLowerCase()===e && e) return id; return null; };
 
@@ -423,17 +456,17 @@ onAuthStateChanged(auth, user=>{
   state.unsub.push(onSnapshot(ACOL, snap=>{
     state.agents = new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));
     state.ready = true; renderAll();
-  }));
+  }, dbError));
   state.unsub.push(onSnapshot(RCOL, snap=>{
     const m = new Map();
     snap.docs.forEach(d=>{ const r={id:d.id,...d.data()}; r._area = areaOf(r); m.set(d.id,r); });
-    state.restaurants = m; state.ready = true; renderAll();
-  }));
+    state.restaurants = m; state.ready = true; $("#dbErr")?.remove(); renderAll();
+  }, dbError));
 });
 $("#loginForm").onsubmit = async e=>{
   e.preventDefault(); $("#loginErr").textContent="";
   try{ await signInWithEmailAndPassword(auth, $("#email").value.trim(), $("#password").value); }
-  catch{ $("#loginErr").textContent = t("loginFail"); }
+  catch(err){ $("#loginErr").textContent = explainError(err); console.error(err); }
 };
 $("#logout").onclick = ()=>signOut(auth);
 
@@ -818,6 +851,8 @@ function agentForm(a){
   };
 }
 $("#btnAddAgent").onclick = ()=>agentForm(null);
+
+window.addEventListener("unhandledrejection", e=>{ if (e.reason && (e.reason.code||e.reason.name==="FirebaseError")) { dbError(e.reason); closeOverlay(); } });
 
 /* =========================================================
    Tabs
