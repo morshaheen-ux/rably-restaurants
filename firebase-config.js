@@ -1,10 +1,8 @@
-// Paste your Firebase web app config here (Firebase console → Project settings → Your apps → Web app).
-// These values are not secret: access is protected by Firebase Authentication + the rules in firestore.rules.
 window.FIREBASE_CONFIG = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID"
+  apiKey: "AIzaSyARjbelBIZXbbDlVYNApi6HtKerjfUA-fA",
+  authDomain: "rably-6e02d.firebaseapp.com",
+  projectId: "rably-6e02d",
+  storageBucket: "rably-6e02d.firebasestorage.app",
+  messagingSenderId: "858621754471",
+  appId: "1:858621754471:web:b5fda97d382c1bfd5ce8c2"
 };
