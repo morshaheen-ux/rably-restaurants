@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rably · Restaurants</title>
+<title>Rably · Shops</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -155,6 +155,15 @@ td.chk,th.chk{width:36px;cursor:default}
 .row-end{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .progress{height:6px;background:#EEF0F6;border-radius:999px;overflow:hidden;margin-top:12px}
 .progress span{display:block;height:100%;background:var(--ink);width:0;transition:width .2s}
+.nearbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#EEF1FF;border:1px solid #C9D2FF;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
+.nearbar select{width:auto;padding:5px 8px}
+.nearbar .btn{padding:5px 10px}
+.grp{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1FF;color:#2A3266;white-space:nowrap}
+.dupopt{display:flex;gap:10px;align-items:flex-start;background:#FAFBFD;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;cursor:pointer}
+.dupopt input{width:auto;margin-top:4px}
+.dupopt b{display:block}
+.dupopt small{color:var(--muted)}
+.duplist{font-size:13px;color:var(--muted);margin:6px 0 0;padding-inline-start:18px;max-height:140px;overflow:auto}
 .toast{position:fixed;bottom:20px;inset-inline-start:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;z-index:60;font-weight:600}
 [dir=rtl] .toast{transform:translateX(50%)}
 
@@ -230,13 +239,18 @@ td.chk,th.chk{width:36px;cursor:default}
       <input type="search" id="q" data-tp="searchPh">
       <select id="fAgent"></select>
       <select id="fCat"></select>
+      <select id="fZone"></select>
       <select id="fArea"></select>
+      <select id="fGroup"></select>
+      <select id="gRadius" aria-label="radius"></select>
       <span class="grow"></span>
       <button class="btn primary" id="btnAdd" data-t="addRestaurant"></button>
       <button class="btn" id="btnImport" data-t="importExcel"></button>
       <button class="btn" id="btnExport" data-t="exportExcel"></button>
+      <button class="btn" id="btnDedup" data-t="dedupDb"></button>
       <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" class="hidden">
     </div>
+    <div class="nearbar hidden" id="nearbar"></div>
 
     <section id="view-list">
       <div class="bulk hidden" id="bulk">
@@ -255,6 +269,7 @@ td.chk,th.chk{width:36px;cursor:default}
             <th data-sort="number">#</th>
             <th data-sort="name" data-t="colName"></th>
             <th data-sort="area" data-t="colArea"></th>
+            <th data-sort="group" data-t="colGroup"></th>
             <th data-sort="phone" class="nosort" data-t="colPhone"></th>
             <th data-sort="rating" data-t="colRating"></th>
             <th data-sort="agent" data-t="colAgent"></th>
@@ -283,7 +298,7 @@ td.chk,th.chk{width:36px;cursor:default}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, addDoc, deleteDoc, writeBatch,
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, setDoc, updateDoc, addDoc, deleteDoc, writeBatch,
   serverTimestamp, getDocs, query, orderBy, limit, connectFirestoreEmulator }
   from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
@@ -292,46 +307,56 @@ import { getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, addDoc, d
    ========================================================= */
 const STATUSES = ["new","in_progress","done","cancelled","rejected"];
 const T = {
-  ar:{appName:"متابعة المطاعم",setupTitle:"ربط قاعدة البيانات",setupText:"ضع إعدادات مشروع Firebase في الملف firebase-config.js على GitHub. للتجربة السريعة يمكنك لصقها هنا وستُحفظ في هذا المتصفح فقط.",setupLabel:"firebaseConfig (JSON)",setupSave:"حفظ والمتابعة",
+  ar:{appName:"متابعة المحلات",setupTitle:"ربط قاعدة البيانات",setupText:"ضع إعدادات مشروع Firebase في الملف firebase-config.js على GitHub. للتجربة السريعة يمكنك لصقها هنا وستُحفظ في هذا المتصفح فقط.",setupLabel:"firebaseConfig (JSON)",setupSave:"حفظ والمتابعة",
     signIn:"تسجيل الدخول",signInText:"استخدم الحساب الذي أنشأه المدير في Firebase.",email:"البريد الإلكتروني",password:"كلمة المرور",signOut:"خروج",
-    tabList:"القائمة",tabMap:"الخريطة",tabTeam:"الفريق",restaurants:"مطعم",
+    tabList:"القائمة",tabMap:"الخريطة",tabTeam:"الفريق",restaurants:"محل",
     s_new:"لم يبدأ",s_in_progress:"قيد التنفيذ",s_done:"تم",s_cancelled:"ملغى",s_rejected:"مرفوض",
     searchPh:"ابحث بالاسم أو الهاتف أو العنوان",allAgents:"كل المندوبين",unassigned:"غير مُسند",allCats:"كل التصنيفات",allAreas:"كل المناطق",
-    addRestaurant:"إضافة مطعم",importExcel:"استيراد Excel",exportExcel:"تصدير Excel",
-    colName:"المطعم",colArea:"المنطقة",colPhone:"الهاتف",colRating:"التقييم",colAgent:"المندوب",colStatus:"الحالة",colUpdated:"آخر تحديث",
+    addRestaurant:"إضافة محل",importExcel:"استيراد Excel",exportExcel:"تصدير Excel",
+    colName:"المحل",colArea:"المنطقة",colPhone:"الهاتف",colRating:"التقييم",colAgent:"المندوب",colStatus:"الحالة",colUpdated:"آخر تحديث",
     showMore:"عرض المزيد",selected:"محدد",assign:"إسناد",setStatus:"تغيير الحالة",clearSel:"إلغاء التحديد",chooseAgent:"اختر مندوبًا…",chooseStatus:"اختر حالة…",
-    noResults:"لا توجد نتائج",noResultsText:"غيّر البحث أو الفلاتر لعرض مطاعم أخرى.",
-    emptyDb:"قاعدة البيانات فارغة",emptyDbText:"حمّل قائمة المطاعم الأولية (897 مطعمًا) أو استورد ملف Excel.",loadSeed:"تحميل القائمة الأولية",
+    noResults:"لا توجد نتائج",noResultsText:"غيّر البحث أو الفلاتر لعرض محلات أخرى.",
+    emptyDb:"قاعدة البيانات فارغة",emptyDbText:"استورد ملف Excel بقائمة المحلات أو حمّل القائمة الأولية.",loadSeed:"تحميل القائمة الأولية",
     status:"الحالة",agent:"المندوب",notes:"ملاحظات",save:"حفظ",cancel:"إلغاء",close:"إغلاق",delete:"حذف",
     name:"الاسم",phone:"الهاتف",intlPhone:"الهاتف الدولي",address:"العنوان",category:"التصنيف",website:"الموقع",mapsUrl:"رابط خرائط Google",lat:"خط العرض",lng:"خط الطول",
     rating:"التقييم",reviews:"المراجعات",price:"الأسعار",hours:"ساعات العمل",openMaps:"فتح في الخرائط",history:"السجل",noHistory:"لا توجد تغييرات بعد.",
-    newRestaurant:"مطعم جديد",added:"تمت الإضافة",saved:"تم الحفظ",deleted:"تم الحذف",confirmDelete:"حذف هذا المطعم نهائيًا؟",
-    importTitle:"استيراد ملف Excel",importText:"تتم مطابقة المطاعم حسب place_id (أو الاسم + الهاتف). الإسناد والحالة والملاحظات لا تتغير أبدًا عند الاستيراد.",
-    importNew:"جديدة",importChanged:"محدَّثة",importSame:"بدون تغيير",importSkipped:"صفوف بدون اسم تم تجاهلها",importRun:"استيراد",importing:"جارٍ الاستيراد…",imported:"تم الاستيراد",importBad:"لم يتم العثور على عمود name في الملف.",
-    addAgent:"إضافة مندوب",editAgent:"تعديل المندوب",agentName:"الاسم",agentPhone:"الهاتف",agentEmail:"البريد (لربط حسابه بقائمة «مطاعمي»)",active:"نشط",inactive:"غير نشط",deactivate:"إيقاف",activate:"تفعيل",edit:"تعديل",assignedTotal:"مطعم مُسند",
-    viewList:"عرض القائمة",noAgents:"لا يوجد مندوبون بعد",noAgentsText:"أضف أعضاء الفريق لتتمكن من إسناد المطاعم إليهم.",mine:"مطاعمي",
+    newRestaurant:"محل جديد",added:"تمت الإضافة",saved:"تم الحفظ",deleted:"تم الحذف",confirmDelete:"حذف هذا المحل نهائيًا؟",
+    importTitle:"استيراد ملف Excel",importText:"تتم مطابقة المحلات الموجودة حسب رابط Google Maps أو place_id أو الاسم + الموقع. الإسناد والحالة والملاحظات لا تتغير أبدًا عند الاستيراد.",
+    importNew:"جديدة",importChanged:"محدَّثة",importSame:"بدون تغيير",importSkipped:"صفوف بدون اسم تم تجاهلها",importRun:"استيراد",importing:"جارٍ الاستيراد…",imported:"تم الاستيراد",importBad:"لم يتم العثور على عمود الاسم (name أو Business Name) في الملف.",
+    addAgent:"إضافة مندوب",editAgent:"تعديل المندوب",agentName:"الاسم",agentPhone:"الهاتف",agentEmail:"البريد (لربط حسابه بقائمة «محلاتي»)",active:"نشط",inactive:"غير نشط",deactivate:"إيقاف",activate:"تفعيل",edit:"تعديل",assignedTotal:"محل مُسند",
+    viewList:"عرض القائمة",noAgents:"لا يوجد مندوبون بعد",noAgentsText:"أضف أعضاء الفريق لتتمكن من إسناد المحلات إليهم.",mine:"محلاتي",
     changed:"غيّر",from:"من",to:"إلى",created:"أنشأ السجل",by:"بواسطة",loginFail:"البريد أو كلمة المرور غير صحيحة.",cfgBad:"النص ليس JSON صالحًا يحتوي apiKey و projectId.",
-    of:"من",lang:"English"},
-  en:{appName:"Restaurant tracker",setupTitle:"Connect the database",setupText:"Put your Firebase project config in firebase-config.js on GitHub. For a quick trial you can paste it here; it is saved in this browser only.",setupLabel:"firebaseConfig (JSON)",setupSave:"Save and continue",
+    of:"من",lang:"English",
+    allZones:"كل النطاقات",colGroup:"مجموعة قريبة",allGroups:"كل المجموعات القريبة",isolated:"محلات منفردة (بعيدة عن غيرها)",groupWord:"مجموعة",
+    radiusLbl:"مسافة التجميع",within:"ضمن",near:"قريب من",nearTitle:"المحلات القريبة من",showNearby:"عرض المحلات القريبة",clearNear:"إلغاء",m:"م",km:"كم",
+    dupTitle:"إزالة التكرار",dupOptTitle:"إزالة التكرار (مُستحسن)",dupOptText:"نفس المحل مكرر في الملف (نفس رابط Google Maps، أو نفس الاسم في نفس الموقع). سيتم دمج الصفوف في سجل واحد وجمع التصنيفات.",
+    dupInFile:"صف مكرر في الملف",dupExamples:"أمثلة",dedupDb:"إزالة المكرر",dedupText:"البحث عن محلات مكررة في قاعدة البيانات. يتم الاحتفاظ بالسجل الذي عليه عمل (حالة، مندوب، ملاحظات) ودمج المعلومات الناقصة فيه، وحذف النسخ الأخرى.",
+    dedupNone:"لا توجد محلات مكررة في قاعدة البيانات.",dedupGroups:"محل مكرر",dedupRemove:"سجل سيُحذف",dedupRun:"حذف المكرر",dedupDone:"تم حذف المكرر",zone:"النطاق",colZone:"النطاق"},
+  en:{appName:"Shop tracker",setupTitle:"Connect the database",setupText:"Put your Firebase project config in firebase-config.js on GitHub. For a quick trial you can paste it here; it is saved in this browser only.",setupLabel:"firebaseConfig (JSON)",setupSave:"Save and continue",
     signIn:"Sign in",signInText:"Use the account the admin created in Firebase.",email:"Email",password:"Password",signOut:"Sign out",
-    tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"restaurants",
+    tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"shops",
     s_new:"Not started",s_in_progress:"In progress",s_done:"Done",s_cancelled:"Cancelled",s_rejected:"Rejected",
     searchPh:"Search name, phone or address",allAgents:"All agents",unassigned:"Unassigned",allCats:"All categories",allAreas:"All areas",
-    addRestaurant:"Add restaurant",importExcel:"Import Excel",exportExcel:"Export Excel",
-    colName:"Restaurant",colArea:"Area",colPhone:"Phone",colRating:"Rating",colAgent:"Agent",colStatus:"Status",colUpdated:"Updated",
+    addRestaurant:"Add shop",importExcel:"Import Excel",exportExcel:"Export Excel",
+    colName:"Shop",colArea:"Area",colPhone:"Phone",colRating:"Rating",colAgent:"Agent",colStatus:"Status",colUpdated:"Updated",
     showMore:"Show more",selected:"selected",assign:"Assign",setStatus:"Set status",clearSel:"Clear selection",chooseAgent:"Choose agent…",chooseStatus:"Choose status…",
-    noResults:"No restaurants match",noResultsText:"Change the search or filters to see more.",
-    emptyDb:"The database is empty",emptyDbText:"Load the starter list (897 restaurants) or import an Excel file.",loadSeed:"Load starter list",
+    noResults:"No shops match",noResultsText:"Change the search or filters to see more.",
+    emptyDb:"The database is empty",emptyDbText:"Import an Excel file with your shop list, or load the starter list.",loadSeed:"Load starter list",
     status:"Status",agent:"Agent",notes:"Notes",save:"Save",cancel:"Cancel",close:"Close",delete:"Delete",
     name:"Name",phone:"Phone",intlPhone:"International phone",address:"Address",category:"Category",website:"Website",mapsUrl:"Google Maps link",lat:"Latitude",lng:"Longitude",
     rating:"Rating",reviews:"Reviews",price:"Price",hours:"Opening hours",openMaps:"Open in Maps",history:"History",noHistory:"No changes yet.",
-    newRestaurant:"New restaurant",added:"Restaurant added",saved:"Changes saved",deleted:"Restaurant deleted",confirmDelete:"Delete this restaurant permanently?",
-    importTitle:"Import Excel file",importText:"Restaurants are matched by place_id (or name + phone). Assignment, status and notes are never changed by an import.",
-    importNew:"new",importChanged:"updated",importSame:"unchanged",importSkipped:"rows without a name were skipped",importRun:"Import",importing:"Importing…",imported:"Import finished",importBad:"No “name” column found in this file.",
-    addAgent:"Add agent",editAgent:"Edit agent",agentName:"Name",agentPhone:"Phone",agentEmail:"Email (links their login to “My restaurants”)",active:"Active",inactive:"Inactive",deactivate:"Deactivate",activate:"Activate",edit:"Edit",assignedTotal:"assigned",
-    viewList:"View list",noAgents:"No agents yet",noAgentsText:"Add your team members so you can assign restaurants to them.",mine:"My restaurants",
+    newRestaurant:"New shop",added:"Shop added",saved:"Changes saved",deleted:"Shop deleted",confirmDelete:"Delete this shop permanently?",
+    importTitle:"Import Excel file",importText:"Existing shops are matched by Google Maps link, place_id, or name + location. Assignment, status and notes are never changed by an import.",
+    importNew:"new",importChanged:"updated",importSame:"unchanged",importSkipped:"rows without a name were skipped",importRun:"Import",importing:"Importing…",imported:"Import finished",importBad:"No name column (name or Business Name) found in this file.",
+    addAgent:"Add agent",editAgent:"Edit agent",agentName:"Name",agentPhone:"Phone",agentEmail:"Email (links their login to “My shops”)",active:"Active",inactive:"Inactive",deactivate:"Deactivate",activate:"Activate",edit:"Edit",assignedTotal:"assigned",
+    viewList:"View list",noAgents:"No agents yet",noAgentsText:"Add your team members so you can assign shops to them.",mine:"My shops",
     changed:"changed",from:"from",to:"to",created:"created the record",by:"by",loginFail:"Wrong email or password.",cfgBad:"That isn't valid JSON with apiKey and projectId.",
-    of:"of",lang:"العربية"}
+    of:"of",lang:"العربية",
+    allZones:"All zones",colGroup:"Nearby group",allGroups:"All nearby groups",isolated:"Isolated shops (nothing nearby)",groupWord:"Group",
+    radiusLbl:"Grouping distance",within:"within",near:"Near",nearTitle:"Shops near",showNearby:"Show nearby shops",clearNear:"Clear",m:"m",km:"km",
+    dupTitle:"Duplicates",dupOptTitle:"Remove duplicates (recommended)",dupOptText:"The same shop appears more than once in the file (same Google Maps link, or same name at the same spot). Rows are merged into one record and their categories combined.",
+    dupInFile:"duplicate rows in the file",dupExamples:"Examples",dedupDb:"Remove duplicates",dedupText:"Find shops that exist more than once in the database. The record with work on it (status, agent, notes) is kept, missing details are merged into it, and the other copies are deleted.",
+    dedupNone:"No duplicate shops in the database.",dedupGroups:"duplicated shops",dedupRemove:"records to delete",dedupRun:"Delete duplicates",dedupDone:"Duplicates removed",zone:"Zone",colZone:"Zone"}
 };
 let LANG = (()=>{ try{return localStorage.getItem("lang")||"ar"}catch{return "ar"} })();
 const t = k => T[LANG][k] ?? k;
@@ -375,7 +400,9 @@ if (!cfg){
 }
 const fb = initializeApp(cfg);
 const auth = getAuth(fb);
-const db = getFirestore(fb);
+let db;
+try { db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch { db = getFirestore(fb); }
 if (new URLSearchParams(location.search).has("emulator")) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
@@ -388,11 +415,16 @@ const ACOL = collection(db, "agents");
    ========================================================= */
 const state = {
   ready:false, user:null, restaurants:new Map(), agents:new Map(),
-  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"",
+  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"", fZone:"", fGroup:"",
+  radius:(()=>{ try{return Number(localStorage.getItem("gRadius"))||300}catch{return 300} })(), near:null,
   sort:{key:"number",dir:1}, pageSize:150, shown:150, selected:new Set(),
   unsub:[]
 };
-const EXCEL_FIELDS = ["number","name","rating","reviews","phone","international_phone","website","address","latitude","longitude","category","types","price","gstatus","google_maps_url","place_id","opening_hours"];
+const EXCEL_FIELDS = ["number","name","rating","reviews","phone","international_phone","website","address","zone","area","latitude","longitude","category","types","price","gstatus","google_maps_url","place_id","opening_hours"];
+// column names used by other Excel layouts (e.g. RABLY_ALL_BUSINESSES_WITH_CLASSIFICATION)
+const ALIASES = {"no.":"number","no":"number","#":"number","business_name":"name","business_type":"category","type":"category",
+  "zone_classification":"zone","area_/_location":"area","area/location":"area","location":"area","google_maps":"google_maps_url","maps":"google_maps_url",
+  "lat":"latitude","lng":"longitude","lon":"longitude","phone_number":"phone"};
 const NUMERIC = new Set(["number","rating","reviews","latitude","longitude"]);
 
 function areaOf(r){
@@ -404,6 +436,78 @@ function areaOf(r){
   return a;
 }
 const agentName = id => id && state.agents.get(id)?.name || "";
+
+/* ---------- geography: distance, nearby groups ---------- */
+const hasGeo = r => Number.isFinite(r.latitude) && Number.isFinite(r.longitude);
+function distM(a,b){ // haversine, metres
+  const R=6371000, toR=Math.PI/180, dLat=(b.latitude-a.latitude)*toR, dLng=(b.longitude-a.longitude)*toR;
+  const h=Math.sin(dLat/2)**2+Math.cos(a.latitude*toR)*Math.cos(b.latitude*toR)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+const fmtDist = m => m<1000 ? `${Math.round(m/10)*10} ${t("m")}` : `${(m/1000).toFixed(1)} ${t("km")}`;
+const RADII = [100,200,300,500,1000];
+// Grid index so "who is within R metres" is fast even for thousands of shops.
+function gridIndex(pts, cell){
+  const g=new Map(), key=(x,y)=>x+","+y;
+  const xy = r => [Math.floor(r.longitude*111320*Math.cos(33.5*Math.PI/180)/cell), Math.floor(r.latitude*110540/cell)];
+  for (const r of pts){ const [x,y]=xy(r); const k=key(x,y); (g.get(k)||g.set(k,[]).get(k)).push(r); }
+  return { around(r){ const [x,y]=xy(r), out=[]; for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const c=g.get(key(x+i,y+j)); if(c) out.push(...c); } return out; } };
+}
+// Nearby groups: repeatedly take the shop with the most neighbours within R and group every
+// ungrouped shop within R of it. Each group is a walkable cluster (at most 2R across).
+let groupCache = {src:null, radius:0, of:new Map(), list:[]};
+function nearbyGroups(){
+  if (groupCache.src===state.restaurants && groupCache.radius===state.radius) return groupCache;
+  const R = state.radius, pts=[...state.restaurants.values()].filter(hasGeo), idx=gridIndex(pts,R);
+  const nb = new Map(pts.map(p=>[p.id, idx.around(p).filter(q=>distM(p,q)<=R)]));
+  const order = [...pts].sort((a,b)=>nb.get(b.id).length-nb.get(a.id).length || String(a.id).localeCompare(String(b.id)));
+  const taken = new Set(), raw=[];
+  for (const p of order){
+    if (taken.has(p.id)) continue;
+    const members = nb.get(p.id).filter(q=>!taken.has(q.id));
+    members.forEach(q=>taken.add(q.id));
+    raw.push({center:p, members});
+  }
+  const multi = raw.filter(g=>g.members.length>1).sort((a,b)=>b.members.length-a.members.length);
+  const of = new Map(), list=[];
+  multi.forEach((g,i)=>{
+    const id = "g"+(i+1);
+    const areas={}; g.members.forEach(m=>{ const a=m._area||m.zone; if(a) areas[a]=(areas[a]||0)+1; });
+    const area = Object.entries(areas).sort((a,b)=>b[1]-a[1])[0]?.[0] || "";
+    list.push({id, n:i+1, area, size:g.members.length, center:g.center});
+    g.members.forEach(m=>of.set(m.id,{id, n:i+1}));
+  });
+  raw.filter(g=>g.members.length===1).forEach(g=>of.set(g.members[0].id,{id:"iso", n:Infinity}));
+  return groupCache = {src:state.restaurants, radius:R, of, list};
+}
+const groupOf = r => nearbyGroups().of.get(r.id) || null;
+
+/* ---------- duplicate detection ---------- */
+const normName = s => String(s||"").toLowerCase().normalize("NFKC").replace(/[ً-ٟـ]/g,"").replace(/[أإآ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").replace(/[^\p{L}\p{N}]+/gu,"");
+const cidOf = r => (String(r.google_maps_url||"").match(/[?&]cid=(\d+)/)||[])[1] || "";
+const phoneKey = s => String(s||"").replace(/\D/g,"").slice(-8);
+// Two records are the same shop if they share a Google Maps cid / place_id, or have the same
+// name and are within 75 m of each other (or share a phone number, or both lack coordinates).
+function makeMatcher(){
+  const byCid=new Map(), byPid=new Map(), byName=new Map();
+  return {
+    add(r,val=r){ const c=cidOf(r); if(c&&!byCid.has(c)) byCid.set(c,val); if(r.place_id&&!byPid.has(r.place_id)) byPid.set(r.place_id,val);
+      const n=normName(r.name); if(n) (byName.get(n)||byName.set(n,[]).get(n)).push([r,val]); },
+    find(r){
+      const c=cidOf(r); if(c&&byCid.has(c)) return byCid.get(c);
+      if(r.place_id&&byPid.has(r.place_id)) return byPid.get(r.place_id);
+      const cands = byName.get(normName(r.name))||[];
+      for (const [o,val] of cands){
+        if (hasGeo(r)&&hasGeo(o)){ if (distM(r,o)<=75) return val; continue; }
+        const pa=phoneKey(r.phone), pb=phoneKey(o.phone);
+        if (pa&&pb){ if(pa===pb) return val; continue; }
+        if (!hasGeo(r)&&!hasGeo(o)) return val;
+      }
+      return null;
+    }
+  };
+}
+const typesOf = r => [...new Set([r.category, ...String(r.types||"").split(/\s*[,،]\s*/)].filter(Boolean))];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const toMs = v => v?.toMillis ? v.toMillis() : (typeof v==="number"? v : 0);
 const fmtDate = v => { const ms=toMs(v); if(!ms) return ""; return new Date(ms).toLocaleDateString(LANG==="ar"?"ar-SY-u-nu-latn":"en-GB",{day:"numeric",month:"short",year:"numeric"}); };
@@ -480,10 +584,13 @@ function baseFiltered(){ // all filters except status (pipeline shows distributi
     if (state.fAgent==="__none" && r.assignedTo) return false;
     if (state.fAgent==="__mine" && r.assignedTo!==mine) return false;
     if (state.fAgent && !state.fAgent.startsWith("__") && r.assignedTo!==state.fAgent) return false;
-    if (state.fCat && r.category!==state.fCat) return false;
+    if (state.fCat && !typesOf(r).includes(state.fCat)) return false;
+    if (state.fZone && r.zone!==state.fZone) return false;
     if (state.fArea && r._area!==state.fArea) return false;
+    if (state.fGroup && groupOf(r)?.id!==state.fGroup) return false;
+    if (state.near){ if(!hasGeo(r) || distM(state.near,r)>state.near.r) return false; }
     if (q){
-      const hay = [r.name,r.phone,r.international_phone,r.address,r.category,r._area,r.number].join(" ").toLowerCase();
+      const hay = [r.name,r.phone,r.international_phone,r.address,r.category,r.types,r._area,r.zone,r.number].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -493,15 +600,15 @@ function filtered(){
   const base = baseFiltered();
   const list = state.fStatus ? base.filter(r=>(r.status||"new")===state.fStatus) : base;
   const {key,dir} = state.sort;
-  const val = r => key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="status"? STATUSES.indexOf(r.status||"new") : key==="updatedAt"? toMs(r.updatedAt) : r[key];
+  const val = r => key==="_dist"? distM(state.near,r) : key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="group"? (groupOf(r)?.n ?? null) : key==="status"? STATUSES.indexOf(r.status||"new") : key==="updatedAt"? toMs(r.updatedAt) : r[key];
   list.sort((a,b)=>{ const x=val(a), y=val(b);
-    if (x==null||x==="") return 1; if (y==null||y==="") return -1;
+    if (x==null||x===""||x===Infinity) return 1; if (y==null||y===""||y===Infinity) return -1;
     return (typeof x==="number"&&typeof y==="number" ? x-y : String(x).localeCompare(String(y),LANG)) * dir; });
   return {base,list};
 }
 function renderAll(){
   if (!state.ready) return;
-  renderFilters(); renderPipeline(); renderList();
+  renderFilters(); renderNear(); renderPipeline(); renderList();
   if (state.tab==="map") renderMap();
   if (state.tab==="team") renderTeam();
 }
@@ -510,13 +617,35 @@ function renderFilters(){
   const agents = [...state.agents.values()].sort((a,b)=>a.name.localeCompare(b.name,LANG));
   const mine = myAgentId();
   $("#fAgent").innerHTML = opt("",t("allAgents"),state.fAgent) + (mine?opt("__mine",t("mine"),state.fAgent):"") + opt("__none",t("unassigned"),state.fAgent) + agents.map(a=>opt(a.id,a.name+(a.active===false?" ("+t("inactive")+")":""),state.fAgent)).join("");
-  const cats = [...new Set([...state.restaurants.values()].map(r=>r.category).filter(Boolean))].sort();
+  const cats = [...new Set([...state.restaurants.values()].flatMap(typesOf))].sort();
   $("#fCat").innerHTML = opt("",t("allCats"),state.fCat) + cats.map(c=>opt(c,c,state.fCat)).join("");
+  const zones = [...new Set([...state.restaurants.values()].map(r=>r.zone).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"en",{numeric:true}));
+  $("#fZone").innerHTML = opt("",t("allZones"),state.fZone) + zones.map(z=>opt(z,z,state.fZone)).join("");
+  show("#fZone", zones.length>0);
+  const G = nearbyGroups();
+  $("#fGroup").innerHTML = opt("",t("allGroups"),state.fGroup)
+    + G.list.map(g=>opt(g.id,`${t("groupWord")} ${g.n} — ${g.area||"…"} (${g.size})`,state.fGroup)).join("")
+    + opt("iso",t("isolated"),state.fGroup);
+  $("#gRadius").innerHTML = RADII.map(m=>opt(String(m),`${t("radiusLbl")}: ${fmtDist(m)}`,String(state.radius))).join("");
   const areas = [...new Set([...state.restaurants.values()].map(r=>r._area).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   $("#fArea").innerHTML = opt("",t("allAreas"),state.fArea) + areas.map(c=>opt(c,c,state.fArea)).join("");
   const activeAgents = agents.filter(a=>a.active!==false);
   $("#bulkAgent").innerHTML = opt("",t("chooseAgent"),"") + opt("__none",t("unassigned"),"") + activeAgents.map(a=>opt(a.id,a.name,"")).join("");
   $("#bulkStatus").innerHTML = opt("",t("chooseStatus"),"") + STATUSES.map(s=>opt(s,sLabel(s),"")).join("");
+}
+function renderNear(){
+  const n = state.near; show("#nearbar", !!n); if(!n) return;
+  $("#nearbar").innerHTML = `<strong>📍 ${t("nearTitle")} «${esc(n.name)}»</strong> ${t("within")}
+    <select id="nearR">${RADII.map(m=>opt(String(m),fmtDist(m),String(n.r))).join("")}</select>
+    <span style="flex:1"></span><button class="btn" id="nearClear">✕ ${t("clearNear")}</button>`;
+  $("#nearR").onchange = e=>{ n.r = Number(e.target.value); state.shown=state.pageSize; renderAll(); };
+  $("#nearClear").onclick = ()=>{ state.near=null; if(state.sort.key==="_dist") state.sort={key:"number",dir:1}; renderAll(); };
+}
+function setNear(id, r=500){
+  const x = state.restaurants.get(id); if(!x||!hasGeo(x)) return;
+  state.near = {id, name:x.name, latitude:x.latitude, longitude:x.longitude, r};
+  state.fGroup=""; state.fArea=""; state.fZone=""; state.sort={key:"_dist",dir:1}; state.shown=state.pageSize;
+  closeOverlay(); renderAll(); if(state.tab==="map") fitMap();
 }
 function renderPipeline(){
   const base = baseFiltered();
@@ -542,7 +671,8 @@ function renderList(){
       <td class="chk"><input type="checkbox" data-sel="${esc(r.id)}" ${state.selected.has(r.id)?"checked":""} aria-label="${esc(r.name)}"></td>
       <td class="num">${esc(r.number??"")}</td>
       <td><div class="name">${esc(r.name)}</div><div class="sub">${esc(r.category||"")}</div></td>
-      <td>${esc(r._area)}</td>
+      <td>${esc(r._area)}${r.zone?`<div class="sub">${esc(r.zone)}</div>`:""}${state.near?`<div class="sub">📍 ${fmtDist(distM(state.near,r))}</div>`:""}</td>
+      <td>${(g=>g&&g.id!=="iso"?`<span class="grp num" data-grp="${g.id}" title="${t("colGroup")}">${t("groupWord")} ${g.n}</span>`:"")(groupOf(r))}</td>
       <td class="num" dir="ltr" style="text-align:${LANG==="ar"?"right":"left"}">${esc(r.phone||"")}</td>
       <td class="num">${r.rating!=null?`★ ${r.rating} <span class="sub">(${r.reviews??0})</span>`:""}</td>
       <td class="nw">${r.assignedTo?esc(agentName(r.assignedTo)):`<span class="unassigned">${t("unassigned")}</span>`}</td>
@@ -573,6 +703,8 @@ $("#rows").addEventListener("click",e=>{
   const cb = e.target.closest("[data-sel]");
   if (cb){ cb.checked ? state.selected.add(cb.dataset.sel) : state.selected.delete(cb.dataset.sel); renderBulk(); return; }
   if (e.target.closest("td.chk")) return;
+  const gc = e.target.closest("[data-grp]");
+  if (gc){ state.fGroup = gc.dataset.grp; state.near=null; state.shown=state.pageSize; renderAll(); return; }
   const tr = e.target.closest("tr[data-id]"); if (tr) openRestaurant(tr.dataset.id);
 });
 $("#chkAll").onchange = e=>{
@@ -584,7 +716,8 @@ document.querySelectorAll("th[data-sort]").forEach(th=>th.addEventListener("clic
   const k=th.dataset.sort; state.sort = {key:k, dir: state.sort.key===k ? -state.sort.dir : 1}; renderList();
 }));
 let qTimer; $("#q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{state.q=e.target.value; state.shown=state.pageSize; renderAll();},150); });
-["fAgent","fCat","fArea"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; state.shown=state.pageSize; renderAll(); });
+["fAgent","fCat","fZone","fArea","fGroup"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; state.shown=state.pageSize; renderAll(); if(id==="fGroup"&&state.tab==="map") fitMap(); });
+$("#gRadius").onchange = e=>{ state.radius=Number(e.target.value); state.fGroup=""; try{localStorage.setItem("gRadius",state.radius)}catch{} renderAll(); };
 $("#bulkClear").onclick = ()=>{ state.selected.clear(); renderList(); };
 
 /* =========================================================
@@ -641,7 +774,7 @@ function openRestaurant(id){
   const r = state.restaurants.get(id); if(!r) return;
   const link = r.google_maps_url || (r.latitude?`https://www.google.com/maps?q=${r.latitude},${r.longitude}`:"");
   openOverlay(`<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle">
-    <header><h2 id="dTitle">${esc(r.name)}<div class="sub" style="font-size:13px;font-weight:400;color:var(--muted)">${esc([r.category,r._area].filter(Boolean).join(" — "))}</div></h2>
+    <header><h2 id="dTitle">${esc(r.name)}<div class="sub" style="font-size:13px;font-weight:400;color:var(--muted)">${esc([typesOf(r).join("، "),r._area,r.zone].filter(Boolean).join(" — "))}</div></h2>
       <button class="btn ghost" data-close aria-label="${t("close")}">✕</button></header>
     <div class="body">
       <label>${t("status")}</label>${statusPicker(r.status)}
@@ -650,12 +783,14 @@ function openRestaurant(id){
       <dl class="facts">
         ${r.phone?`<dt>${t("phone")}</dt><dd dir="ltr"><a href="tel:${esc(r.international_phone||r.phone)}">${esc(r.phone)}</a></dd>`:""}
         <dt>${t("address")}</dt><dd>${esc(r.address||"—")}</dd>
+        ${(g=>g&&g.id!=="iso"?`<dt>${t("colGroup")}</dt><dd><span class="grp">${t("groupWord")} ${g.n}</span></dd>`:"")(groupOf(r))}
         ${r.rating!=null?`<dt>${t("rating")}</dt><dd>★ ${r.rating} (${r.reviews??0})</dd>`:""}
         ${r.price?`<dt>${t("price")}</dt><dd>${esc(r.price)}</dd>`:""}
         ${r.website?`<dt>${t("website")}</dt><dd dir="ltr"><a href="${esc(r.website)}" target="_blank" rel="noopener">${esc(r.website.replace(/^https?:\/\//,""))}</a></dd>`:""}
         ${link?`<dt>${t("openMaps")}</dt><dd><a href="${esc(link)}" target="_blank" rel="noopener">Google Maps</a></dd>`:""}
         ${r.opening_hours?`<dt>${t("hours")}</dt><dd dir="ltr" style="font-size:12.5px">${esc(r.opening_hours).split(" | ").join("<br>")}</dd>`:""}
       </dl>
+      ${hasGeo(r)?`<button class="btn" id="dNear" style="margin-bottom:12px">📍 ${t("showNearby")}</button>`:""}
       <details><summary style="cursor:pointer;font-weight:600">${t("edit")}</summary>${editFields(r)}</details>
       <div class="history"><h3>${t("history")}</h3><ol id="hist"><li>…</li></ol></div>
     </div>
@@ -669,6 +804,7 @@ function openRestaurant(id){
     try{ await updateRestaurant(id, changes); toast(t("saved")); closeOverlay(); }
     catch(err){ $("#dSave").disabled=false; alert(err.message); }
   };
+  if ($("#dNear")) $("#dNear").onclick = ()=>setNear(id);
   $("#dDel").onclick = async ()=>{ if(!confirm(t("confirmDelete"))) return; await deleteDoc(doc(RCOL,id)); toast(t("deleted")); closeOverlay(); };
   getDocs(query(collection(db,"restaurants",id,"history"),orderBy("at","desc"),limit(50))).then(snap=>{
     const items = snap.docs.map(d=>d.data());
@@ -680,7 +816,7 @@ function openRestaurant(id){
     if (LANG==="en") el.innerHTML = el.innerHTML.replaceAll("←","→");
   }).catch(()=>{});
 }
-const EDITABLE = [["name","name"],["phone","phone"],["international_phone","intlPhone"],["address","address"],["category","category"],["website","website"],["google_maps_url","mapsUrl"],["latitude","lat"],["longitude","lng"]];
+const EDITABLE = [["name","name"],["phone","phone"],["international_phone","intlPhone"],["address","address"],["category","category"],["zone","zone"],["area","colArea"],["website","website"],["google_maps_url","mapsUrl"],["latitude","lat"],["longitude","lng"]];
 function editFields(r={}){
   return `<div class="grid2">${EDITABLE.map(([k,l])=>`<div${k==="address"||k==="google_maps_url"?' style="grid-column:1/-1"':""}><label for="e_${k}">${t(l)}</label><input id="e_${k}" ${["phone","international_phone","website","google_maps_url","latitude","longitude"].includes(k)?'dir="ltr"':""} value="${esc(r[k]??"")}"></div>`).join("")}</div>`;
 }
@@ -719,42 +855,84 @@ $("#btnAdd").onclick = ()=>{
    ========================================================= */
 const normKey = s => String(s??"").trim().toLowerCase().replace(/\s+/g,"_");
 const same = (a,b) => (a??null)===(b??null) || (typeof a==="number" && typeof b==="number" && Math.abs(a-b)<1e-6);
-const matchKey = r => r.place_id ? "p:"+r.place_id : "n:"+String(r.name||"").trim().toLowerCase()+"|"+String(r.phone||"").replace(/\D/g,"");
 function cleanRow(raw){
   const o = {};
   for (const [k0,v0] of Object.entries(raw)){
-    let k = normKey(k0); if (k==="status") k="gstatus";
-    if (!EXCEL_FIELDS.includes(k)) continue;
+    let k = normKey(k0); if (k==="status") k="gstatus"; k = ALIASES[k] || k;
+    if (!EXCEL_FIELDS.includes(k) || o[k]!=null) continue;
     let v = v0; if (typeof v==="string"){ v=v.trim(); if(v==="") v=null; }
     if (v!=null && NUMERIC.has(k)){ const n=Number(v); v = Number.isFinite(n)?n:null; }
     if (v!=null && (k==="latitude"||k==="longitude")) v = Math.round(v*1e7)/1e7;
     if (v!=null && !NUMERIC.has(k)) v = String(v);
+    if (k==="google_maps_url" && v) v = v.replace(/([?&]cid=\d+).*$/,"$1"); // drop long tracking suffix
     o[k]=v;
   }
   return o;
 }
-async function runImport(rows, label){
-  const existing = new Map(); for (const r of state.restaurants.values()) existing.set(matchKey(r), r);
-  const plan = {neu:[],chg:[],same:0,skip:0};
+// merge b into a: fill empty fields, collect every business type
+function mergeInto(a,b){
+  for (const k of EXCEL_FIELDS) if ((a[k]==null||a[k]==="") && b[k]!=null && b[k]!=="") a[k]=b[k];
+  const ty = [...new Set([...typesOf(a),...typesOf(b)])];
+  a.types = ty.length>1 ? ty.join(", ") : (a.types??null);
+  return a;
+}
+function planImport(rows, dedupe){
+  const plan = {neu:[],chg:[],same:0,skip:0,dupFile:0,examples:[]};
+  // 1) duplicates inside the file
+  let uniq = [];
+  const fm = makeMatcher();
   for (const raw of rows){
     const r = cleanRow(raw);
     if (!r.name){ plan.skip++; continue; }
-    const ex = existing.get(matchKey(r));
-    if (!ex){ plan.neu.push(r); existing.set(matchKey(r), r); continue; }
-    const diff = {}; for (const k of Object.keys(r)) if (!same(ex[k],r[k])) diff[k]=r[k];
+    if (dedupe){
+      const hit = fm.find(r);
+      if (hit){ plan.dupFile++; if(plan.examples.length<8) plan.examples.push(`${hit.name} — ${[...new Set([hit.category,r.category])].filter(Boolean).join(" + ")}`); mergeInto(hit,r); continue; }
+      fm.add(r);
+    }
+    uniq.push(r);
+  }
+  // 2) compare with what is already in the database (never creates a second copy of an existing shop)
+  const em = makeMatcher(); for (const r of state.restaurants.values()) em.add(r);
+  for (const r of uniq){
+    const ex = em.find(r);
+    if (!ex){ plan.neu.push(r); continue; }
+    const diff = {};
+    for (const k of Object.keys(r)){
+      if (k==="number" || r[k]==null) continue; // keep existing numbering; never blank out data
+      if (!same(ex[k],r[k])) diff[k]=r[k];
+    }
     Object.keys(diff).length ? plan.chg.push([ex.id,diff]) : plan.same++;
   }
+  return plan;
+}
+async function runImport(rows, label){
+  let dedupe = true, plan = planImport(rows, dedupe);
+  const dupCount = plan.dupFile; // count with dedupe on, shown even if the user turns it off
+  const examples = plan.examples;
   openOverlay(`<div class="scrim"></div><div class="modal" role="dialog" aria-modal="true" aria-labelledby="iTitle"><div class="box">
      <h2 id="iTitle">${t("importTitle")}</h2><p>${esc(label)}</p><p>${t("importText")}</p>
-     <div class="stats"><div><b class="num">${plan.neu.length}</b><span>${t("importNew")}</span></div><div><b class="num">${plan.chg.length}</b><span>${t("importChanged")}</span></div><div><b class="num">${plan.same}</b><span>${t("importSame")}</span></div></div>
-     ${plan.skip?`<p>${plan.skip} ${t("importSkipped")}</p>`:""}
+     ${dupCount?`<label class="dupopt"><input type="checkbox" id="iDedup" checked><span><b>${t("dupOptTitle")} — <span class="num">${dupCount}</span> ${t("dupInFile")}</b><small>${t("dupOptText")}</small>
+       <ul class="duplist">${examples.map(x=>`<li>${esc(x)}</li>`).join("")}${dupCount>examples.length?"<li>…</li>":""}</ul></span></label>`:""}
+     <div class="stats" id="iStats"></div>
+     <p id="iSkip"></p>
      <div class="progress hidden" id="iProg"><span></span></div>
-     <div class="row-end"><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="iRun" ${plan.neu.length+plan.chg.length?"":"disabled"}>${t("importRun")}</button></div></div></div>`);
+     <div class="row-end"><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="iRun">${t("importRun")}</button></div></div></div>`);
+  const paint = ()=>{
+    $("#iStats").innerHTML = `<div><b class="num">${plan.neu.length}</b><span>${t("importNew")}</span></div><div><b class="num">${plan.chg.length}</b><span>${t("importChanged")}</span></div><div><b class="num">${plan.same}</b><span>${t("importSame")}</span></div>`;
+    $("#iSkip").textContent = plan.skip ? `${plan.skip} ${t("importSkipped")}` : "";
+    $("#iRun").disabled = !(plan.neu.length+plan.chg.length);
+  };
+  paint();
+  if ($("#iDedup")) $("#iDedup").onchange = e=>{ dedupe = e.target.checked; plan = planImport(rows, dedupe); paint(); };
   $("#iRun").onclick = async ()=>{
-    $("#iRun").disabled=true; $("#iRun").textContent=t("importing"); show("#iProg");
+    $("#iRun").disabled=true; $("#iDedup")&&($("#iDedup").disabled=true); $("#iRun").textContent=t("importing"); show("#iProg");
     const by = state.user.email; let maxNo = Math.max(0,...[...state.restaurants.values()].map(r=>Number(r.number)||0));
+    const usedIds = new Set(state.restaurants.keys());
     const ops = [
-      ...plan.neu.map(r=>b=>{ const ref = r.place_id ? doc(RCOL, r.place_id.replace(/\//g,"_")) : doc(RCOL);
+      ...plan.neu.map(r=>b=>{
+        let id = r.place_id ? r.place_id.replace(/\//g,"_") : (cidOf(r) ? "cid_"+cidOf(r) : null);
+        if (id && usedIds.has(id)) id = null; // same Google place kept twice on purpose (duplicates not removed)
+        const ref = id ? doc(RCOL,id) : doc(RCOL); usedIds.add(ref.id);
         if (r.number==null) r.number = ++maxNo;
         b.set(ref, {...Object.fromEntries(EXCEL_FIELDS.map(k=>[k,null])), ...r, status:"new", assignedTo:null, notes:"", source:"excel",
           createdAt:serverTimestamp(), createdBy:by, updatedAt:serverTimestamp(), updatedBy:by}); }),
@@ -771,17 +949,62 @@ $("#btnImport").onclick = ()=>$("#fileIn").click();
 $("#fileIn").onchange = async e=>{
   const file = e.target.files[0]; e.target.value=""; if(!file) return;
   const wb = XLSX.read(await file.arrayBuffer(), {type:"array"});
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:null});
-  if (!rows.length || !Object.keys(rows[0]).some(k=>normKey(k)==="name")){ alert(t("importBad")); return; }
-  runImport(rows, `${file.name} — ${rows.length} rows`);
+  const hasName = rows => rows.length && Object.keys(rows[0]).some(k=>{ const n=normKey(k); return (ALIASES[n]||n)==="name"; });
+  // use the first sheet that has a name column (the summary sheets are skipped)
+  let rows = [], sheet = "";
+  for (const sn of wb.SheetNames){ const r = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:null}); if (hasName(r)){ rows=r; sheet=sn; break; } }
+  if (!rows.length){ alert(t("importBad")); return; }
+  runImport(rows, `${file.name} · ${sheet} — ${rows.length} rows`);
 };
 async function loadSeed(){
   const rows = await (await fetch("data/restaurants.json")).json();
   runImport(rows, `data/restaurants.json — ${rows.length} rows`);
 }
+/* ---------- remove duplicates already in the database ---------- */
+function dbDuplicateGroups(){
+  const m = makeMatcher(), groups = new Map();
+  for (const r of state.restaurants.values()){
+    const hit = m.find(r);
+    if (hit){ (groups.get(hit.id)||groups.set(hit.id,[hit]).get(hit.id)).push(r); } else m.add(r);
+  }
+  const work = r => (r.status&&r.status!=="new"?4:0)+(r.assignedTo?2:0)+(r.notes?1:0);
+  return [...groups.values()].map(g=>{
+    g.sort((a,b)=>work(b)-work(a) || toMs(a.createdAt)-toMs(b.createdAt) || (Number(a.number)||1e9)-(Number(b.number)||1e9));
+    return {keep:g[0], drop:g.slice(1)};
+  });
+}
+$("#btnDedup").onclick = ()=>{
+  const groups = dbDuplicateGroups(), nDrop = groups.reduce((n,g)=>n+g.drop.length,0);
+  openOverlay(`<div class="scrim"></div><div class="modal" role="dialog" aria-modal="true" aria-labelledby="ddTitle"><div class="box">
+    <h2 id="ddTitle">${t("dupTitle")}</h2><p>${groups.length?t("dedupText"):t("dedupNone")}</p>
+    ${groups.length?`<div class="stats" style="grid-template-columns:1fr 1fr"><div><b class="num">${groups.length}</b><span>${t("dedupGroups")}</span></div><div><b class="num">${nDrop}</b><span>${t("dedupRemove")}</span></div></div>
+      <ul class="duplist">${groups.slice(0,10).map(g=>`<li>${esc(g.keep.name)} ×${g.drop.length+1}</li>`).join("")}${groups.length>10?"<li>…</li>":""}</ul>`:""}
+    <div class="progress hidden" id="ddProg"><span></span></div>
+    <div class="row-end"><button class="btn" data-close>${groups.length?t("cancel"):t("close")}</button>${groups.length?`<button class="btn primary" id="ddRun">${t("dedupRun")}</button>`:""}</div></div></div>`);
+  if (!groups.length) return;
+  $("#ddRun").onclick = async ()=>{
+    $("#ddRun").disabled = true; show("#ddProg");
+    const by = state.user.email, ops = [];
+    for (const {keep,drop} of groups){
+      const merged = {...keep}; drop.forEach(d=>mergeInto(merged,d));
+      const upd = {}; for (const k of [...EXCEL_FIELDS]) if (!same(merged[k],keep[k])) upd[k]=merged[k];
+      if (!keep.assignedTo){ const a = drop.find(d=>d.assignedTo); if (a) upd.assignedTo = a.assignedTo; }
+      const notes = [keep.notes, ...drop.map(d=>d.notes)].filter(Boolean); const n = [...new Set(notes)].join(" | ");
+      if (n !== (keep.notes||"")) upd.notes = n;
+      if (Object.keys(upd).length) ops.push(b=>b.update(doc(RCOL,keep.id), {...upd, updatedAt:serverTimestamp(), updatedBy:by}));
+      drop.forEach(d=>ops.push(b=>b.delete(doc(RCOL,d.id))));
+    }
+    for (let i=0;i<ops.length;i+=450){
+      const b = writeBatch(db); ops.slice(i,i+450).forEach(f=>f(b)); await b.commit();
+      $("#ddProg span").style.width = Math.min(100,Math.round((i+450)*100/ops.length))+"%";
+    }
+    state.selected.clear(); toast(`${t("dedupDone")}: ${nDrop}`); closeOverlay();
+  };
+};
 $("#btnExport").onclick = ()=>{
   const {list} = filtered();
   const data = list.map(r=>{ const o={}; for (const k of EXCEL_FIELDS) o[k==="gstatus"?"status":k]=r[k]??"";
+    const g=groupOf(r); o.nearby_group = g&&g.id!=="iso" ? g.n : ""; if(state.near) o.distance_m = Math.round(distM(state.near,r));
     o.assigned_to = agentName(r.assignedTo); o.work_status = sLabel(r.status); o.notes = r.notes||""; o.updated = fmtDate(r.updatedAt); return o; });
   const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "restaurants");
@@ -794,23 +1017,28 @@ $("#btnExport").onclick = ()=>{
 let map, layer;
 function renderMap(){
   if (!map){
-    map = L.map("map").setView([33.5138,36.2765],12);
+    map = L.map("map",{preferCanvas:true}).setView([33.5138,36.2765],12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
     layer = L.layerGroup().addTo(map);
   }
   setTimeout(()=>map.invalidateSize(),0);
   layer.clearLayers();
+  if (state.near) L.circle([state.near.latitude,state.near.longitude],{radius:state.near.r,color:"#3D5AFE",weight:1.5,fillOpacity:.06}).addTo(layer);
   const css = getComputedStyle(document.documentElement);
   const pts = [];
   filtered().list.forEach(r=>{
     if (r.latitude==null||r.longitude==null) return;
     const s = r.status||"new"; pts.push([r.latitude,r.longitude]);
     L.circleMarker([r.latitude,r.longitude],{radius:7,weight:1.5,color:"#fff",fillColor:css.getPropertyValue("--s-"+s).trim(),fillOpacity:.95})
-      .bindPopup(`<b>${esc(r.name)}</b><br>${esc(sLabel(s))} — ${esc(agentName(r.assignedTo)||t("unassigned"))}<br><a href="#" data-open="${esc(r.id)}">${t("edit")}</a>`)
+      .bindPopup(`<b>${esc(r.name)}</b><br>${esc(typesOf(r).join("، "))}<br>${esc(sLabel(s))} — ${esc(agentName(r.assignedTo)||t("unassigned"))}<br><a href="#" data-open="${esc(r.id)}">${t("edit")}</a> · <a href="#" data-near="${esc(r.id)}">📍 ${t("showNearby")}</a>`)
       .addTo(layer);
   });
+  lastPts = pts;
 }
-$("#map").addEventListener("click",e=>{ const a=e.target.closest("[data-open]"); if(a){ e.preventDefault(); openRestaurant(a.dataset.open); }});
+let lastPts = [];
+function fitMap(){ if(!map) return; renderMap(); if(lastPts.length) setTimeout(()=>map.fitBounds(lastPts,{padding:[40,40],maxZoom:17}),30); }
+$("#map").addEventListener("click",e=>{ const a=e.target.closest("[data-open]"); if(a){ e.preventDefault(); openRestaurant(a.dataset.open); }
+  const n=e.target.closest("[data-near]"); if(n){ e.preventDefault(); map.closePopup(); setNear(n.dataset.near); }});
 
 /* =========================================================
    Team
@@ -862,7 +1090,7 @@ function setTab(tab){
   document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected", b.dataset.tab===tab));
   ["list","map","team"].forEach(v=>show("#view-"+v, v===tab));
   show("#toolbar", tab!=="team");
-  if (tab==="map") renderMap();
+  if (tab==="map"){ renderMap(); if(state.fGroup||state.near) fitMap(); }
   if (tab==="team") renderTeam();
 }
 document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
