@@ -25,11 +25,6 @@
   --s-called_appt:#3D5AFE;
   --s-met_unsigned:#8A4FC9;
   --s-signed:#23875A;
-  /* old statuses, kept so existing records still display */
-  --s-in_progress:#E8C27A;
-  --s-done:#8CC7A8;
-  --s-cancelled:#4B5163;
-  --s-rejected:#C23B3B;
   --r:10px;
 }
 *{box-sizing:border-box}
@@ -53,10 +48,10 @@ textarea{min-height:84px;resize:vertical}
 .btn:hover{border-color:var(--ink-2)}
 .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
 .btn.primary:hover{background:var(--ink-2)}
-.btn.danger{color:var(--s-rejected)}
+.btn.danger{color:#C23B3B}
 .btn.ghost{border-color:transparent;background:transparent}
 .btn:disabled{opacity:.5;cursor:default}
-.err{color:var(--s-rejected);font-size:14px;min-height:1.4em;margin-top:8px}
+.err{color:#C23B3B;font-size:14px;min-height:1.4em;margin-top:8px}
 
 /* ---------- top bar ---------- */
 header.top{background:var(--ink);color:#fff;padding:0 20px;height:58px;display:flex;align-items:center;gap:18px;position:sticky;top:0;z-index:30}
@@ -304,16 +299,15 @@ import { getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, addDoc, d
    i18n
    ========================================================= */
 const STATUSES = ["new","called_no_appt","called_appt","met_unsigned","signed"];
-const LEGACY = ["in_progress","done","cancelled","rejected"]; // old values still in some records
-const stOf = r => r.status||"new";
-// statuses to show: the 5 current ones + any old ones that still exist in the given records
-const pipeStatuses = rs => { const present = new Set(rs.map(stOf)); return [...STATUSES, ...[...present].filter(s=>!STATUSES.includes(s))]; };
+// any status that is not one of the 5 (e.g. old values) is shown as "new"
+const normSt = s => STATUSES.includes(s) ? s : "new";
+const stOf = r => normSt(r.status);
+const pipeStatuses = () => STATUSES;
 const T = {
   ar:{appName:"متابعة المطاعم",setupTitle:"ربط قاعدة البيانات",setupText:"ضع إعدادات مشروع Firebase في الملف firebase-config.js على GitHub. للتجربة السريعة يمكنك لصقها هنا وستُحفظ في هذا المتصفح فقط.",setupLabel:"firebaseConfig (JSON)",setupSave:"حفظ والمتابعة",
     signIn:"تسجيل الدخول",signInText:"استخدم الحساب الذي أنشأه المدير في Firebase.",email:"البريد الإلكتروني",password:"كلمة المرور",signOut:"خروج",
     tabList:"القائمة",tabMap:"الخريطة",tabTeam:"الفريق",restaurants:"مطعم",
     s_new:"لم يبدأ",s_called_no_appt:"مكالمة + موعد غير محجوز",s_called_appt:"مكالمة + موعد محجوز",s_met_unsigned:"تمت المقابلة دون توقيع",s_signed:"تم توقيع العقد",
-    s_in_progress:"قيد التنفيذ (قديم)",s_done:"تم (قديم)",s_cancelled:"ملغى (قديم)",s_rejected:"مرفوض (قديم)",
     searchPh:"ابحث بالاسم أو الهاتف أو العنوان",allAgents:"كل المندوبين",unassigned:"غير مُسند",allCats:"كل التصنيفات",allAreas:"كل المناطق",
     addRestaurant:"إضافة مطعم",importExcel:"استيراد Excel",exportExcel:"تصدير Excel",
     colName:"المطعم",colArea:"المنطقة",colPhone:"الهاتف",colRating:"التقييم",colAgent:"المندوب",colStatus:"الحالة",colUpdated:"آخر تحديث",
@@ -337,7 +331,6 @@ const T = {
     signIn:"Sign in",signInText:"Use the account the admin created in Firebase.",email:"Email",password:"Password",signOut:"Sign out",
     tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"restaurants",
     s_new:"Not started",s_called_no_appt:"Called – no appointment booked",s_called_appt:"Called – appointment booked",s_met_unsigned:"Met – not signed",s_signed:"Contract signed",
-    s_in_progress:"In progress (old)",s_done:"Done (old)",s_cancelled:"Cancelled (old)",s_rejected:"Rejected (old)",
     searchPh:"Search name, phone or address",allAgents:"All agents",unassigned:"Unassigned",allCats:"All categories",allAreas:"All areas",
     addRestaurant:"Add restaurant",importExcel:"Import Excel",exportExcel:"Export Excel",
     colName:"Restaurant",colArea:"Area",colPhone:"Phone",colRating:"Rating",colAgent:"Agent",colStatus:"Status",colUpdated:"Updated",
@@ -360,7 +353,7 @@ const T = {
 };
 let LANG = (()=>{ try{return localStorage.getItem("lang")||"ar"}catch{return "ar"} })();
 const t = k => T[LANG][k] ?? k;
-const sLabel = s => t("s_"+(s||"new"));
+const sLabel = s => t("s_"+normSt(s));
 function applyLang(){
   document.documentElement.lang = LANG; document.documentElement.dir = LANG==="ar"?"rtl":"ltr";
   document.querySelectorAll("[data-t]").forEach(el=>el.textContent=t(el.dataset.t));
@@ -519,9 +512,9 @@ function baseFiltered(){ // all filters except status (pipeline shows distributi
 }
 function filtered(){
   const base = baseFiltered();
-  const list = state.fStatus ? base.filter(r=>(r.status||"new")===state.fStatus) : base;
+  const list = state.fStatus ? base.filter(r=>stOf(r)===state.fStatus) : base;
   const {key,dir} = state.sort;
-  const val = r => key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="status"? (STATUSES.includes(stOf(r))? STATUSES.indexOf(stOf(r)) : 10+LEGACY.indexOf(stOf(r))) : key==="updatedAt"? toMs(r.updatedAt) : r[key];
+  const val = r => key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="status"? STATUSES.indexOf(stOf(r)) : key==="updatedAt"? toMs(r.updatedAt) : r[key];
   list.sort((a,b)=>{ const x=val(a), y=val(b);
     if (x==null||x==="") return 1; if (y==null||y==="") return -1;
     return (typeof x==="number"&&typeof y==="number" ? x-y : String(x).localeCompare(String(y),LANG)) * dir; });
@@ -563,7 +556,7 @@ $("#pLegend").addEventListener("click",e=>{
   const b = e.target.closest("[data-status]"); if(!b) return;
   state.fStatus = state.fStatus===b.dataset.status ? null : b.dataset.status; state.shown=state.pageSize; renderAll();
 });
-function chip(s){ s=s||"new"; return `<span class="chip"><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))}</span>`; }
+function chip(s){ s=normSt(s); return `<span class="chip"><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))}</span>`; }
 function renderList(){
   const {list} = filtered();
   const rows = list.slice(0, state.shown);
@@ -658,7 +651,7 @@ const overlay = $("#overlay");
 function closeOverlay(){ overlay.innerHTML=""; document.removeEventListener("keydown",escClose); }
 function escClose(e){ if(e.key==="Escape") closeOverlay(); }
 function openOverlay(html){ overlay.innerHTML = html; document.addEventListener("keydown",escClose); overlay.querySelector(".scrim")?.addEventListener("click",closeOverlay); overlay.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeOverlay); }
-function statusPicker(cur){ return `<div class="status-pick" role="group">${STATUSES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${(cur||"new")===s}"><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))}</button>`).join("")}</div>`; }
+function statusPicker(cur){ return `<div class="status-pick" role="group">${STATUSES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${normSt(cur)===s}"><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))}</button>`).join("")}</div>`; }
 function agentSelect(cur){
   const ag = [...state.agents.values()].filter(a=>a.active!==false || a.id===cur).sort((a,b)=>a.name.localeCompare(b.name,LANG));
   return `<select id="dAgent">${opt("",t("unassigned"),cur||"")}${ag.map(a=>opt(a.id,a.name,cur||"")).join("")}</select>`;
@@ -937,7 +930,7 @@ function renderMap(){
   const pts = [];
   filtered().list.forEach(r=>{
     if (r.latitude==null||r.longitude==null) return;
-    const s = r.status||"new"; pts.push([r.latitude,r.longitude]);
+    const s = stOf(r); pts.push([r.latitude,r.longitude]);
     L.circleMarker([r.latitude,r.longitude],{radius:7,weight:1.5,color:"#fff",fillColor:css.getPropertyValue("--s-"+s).trim(),fillOpacity:.95})
       .bindPopup(`<b>${esc(r.name)}</b><br>${esc(sLabel(s))} — ${esc(agentName(r.assignedTo)||t("unassigned"))}<br><a href="#" data-open="${esc(r.id)}">${t("edit")}</a>`)
       .addTo(layer);
