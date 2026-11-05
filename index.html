@@ -24,6 +24,7 @@
   --s-called_no_appt:#D99A1E;
   --s-called_appt:#3D5AFE;
   --s-met_unsigned:#8A4FC9;
+  --s-contract_incomplete:#E0663A;
   --s-signed:#23875A;
   --r:10px;
 }
@@ -130,7 +131,7 @@ td.chk,th.chk{width:36px;cursor:default}
 .drawer header h2{margin:0;font-size:19px;flex:1}
 .drawer .body{padding:6px 20px 20px;overflow:auto;flex:1}
 .drawer footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
-.status-pick{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.status-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .status-pick button{text-align:center;line-height:1.3}
 .status-pick button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 4px;cursor:pointer;font-size:13px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:4px}
 .status-pick button[aria-pressed="true"]{border-color:var(--ink);background:#F2F3F9;box-shadow:inset 0 0 0 1px var(--ink)}
@@ -298,8 +299,8 @@ import { getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, addDoc, d
 /* =========================================================
    i18n
    ========================================================= */
-const STATUSES = ["new","called_no_appt","called_appt","met_unsigned","signed"];
-// any status that is not one of the 5 (e.g. old values) is shown as "new"
+const STATUSES = ["new","called_no_appt","called_appt","met_unsigned","contract_incomplete","signed"];
+// any status that is not one of the 6 (e.g. old values) is shown as "new"
 const normSt = s => STATUSES.includes(s) ? s : "new";
 const stOf = r => normSt(r.status);
 const pipeStatuses = () => STATUSES;
@@ -307,7 +308,7 @@ const T = {
   ar:{appName:"متابعة المطاعم",setupTitle:"ربط قاعدة البيانات",setupText:"ضع إعدادات مشروع Firebase في الملف firebase-config.js على GitHub. للتجربة السريعة يمكنك لصقها هنا وستُحفظ في هذا المتصفح فقط.",setupLabel:"firebaseConfig (JSON)",setupSave:"حفظ والمتابعة",
     signIn:"تسجيل الدخول",signInText:"استخدم الحساب الذي أنشأه المدير في Firebase.",email:"البريد الإلكتروني",password:"كلمة المرور",signOut:"خروج",
     tabList:"القائمة",tabMap:"الخريطة",tabTeam:"الفريق",restaurants:"مطعم",
-    s_new:"لم يبدأ",s_called_no_appt:"مكالمة + موعد غير محجوز",s_called_appt:"مكالمة + موعد محجوز",s_met_unsigned:"تمت المقابلة دون توقيع",s_signed:"تم توقيع العقد",
+    s_new:"لم يبدأ",s_called_no_appt:"مكالمة + موعد غير محجوز",s_called_appt:"مكالمة + موعد محجوز",s_met_unsigned:"تمت المقابلة دون توقيع",s_contract_incomplete:"عقد غير مكتمل",s_signed:"تم توقيع العقد",
     searchPh:"ابحث بالاسم أو الهاتف أو العنوان",allAgents:"كل المندوبين",unassigned:"غير مُسند",allCats:"كل التصنيفات",allAreas:"كل المناطق",
     addRestaurant:"إضافة مطعم",importExcel:"استيراد Excel",exportExcel:"تصدير Excel",
     colName:"المطعم",colArea:"المنطقة",colPhone:"الهاتف",colRating:"التقييم",colAgent:"المندوب",colStatus:"الحالة",colUpdated:"آخر تحديث",
@@ -330,7 +331,7 @@ const T = {
   en:{appName:"Restaurant tracker",setupTitle:"Connect the database",setupText:"Put your Firebase project config in firebase-config.js on GitHub. For a quick trial you can paste it here; it is saved in this browser only.",setupLabel:"firebaseConfig (JSON)",setupSave:"Save and continue",
     signIn:"Sign in",signInText:"Use the account the admin created in Firebase.",email:"Email",password:"Password",signOut:"Sign out",
     tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"restaurants",
-    s_new:"Not started",s_called_no_appt:"Called – no appointment booked",s_called_appt:"Called – appointment booked",s_met_unsigned:"Met – not signed",s_signed:"Contract signed",
+    s_new:"Not started",s_called_no_appt:"Called – no appointment booked",s_called_appt:"Called – appointment booked",s_met_unsigned:"Met – not signed",s_contract_incomplete:"Contract incomplete",s_signed:"Contract signed",
     searchPh:"Search name, phone or address",allAgents:"All agents",unassigned:"Unassigned",allCats:"All categories",allAreas:"All areas",
     addRestaurant:"Add restaurant",importExcel:"Import Excel",exportExcel:"Export Excel",
     colName:"Restaurant",colArea:"Area",colPhone:"Phone",colRating:"Rating",colAgent:"Agent",colStatus:"Status",colUpdated:"Updated",
