@@ -94,7 +94,7 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 
 /* ---------- table ---------- */
 .tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto}
-table{width:100%;border-collapse:collapse;min-width:860px}
+table{width:100%;border-collapse:collapse;min-width:1020px}
 th,td{padding:10px 12px;text-align:start;border-bottom:1px solid var(--line);vertical-align:middle}
 th{font-size:13px;color:var(--muted);font-weight:600;background:#FAFBFD;position:sticky;top:0;z-index:1;cursor:pointer;user-select:none}
 th.nosort{cursor:default}
@@ -104,6 +104,7 @@ td .name{font-weight:600}
 td .sub{font-size:12.5px;color:var(--muted)}
 td.nw{white-space:nowrap}
 td.chk,th.chk{width:36px;cursor:default}
+.dchip{display:inline-block;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:8px;background:#EEF3EC;color:#23573E;line-height:1.35;max-width:220px}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:#F1F2F7;white-space:nowrap}
 .unassigned{color:var(--muted);font-style:italic}
 .more{display:flex;justify-content:center;padding:14px}
@@ -239,6 +240,7 @@ td.chk,th.chk{width:36px;cursor:default}
       <select id="fAgent"></select>
       <select id="fCat"></select>
       <select id="fArea"></select>
+      <select id="fData"></select>
       <span class="grow"></span>
       <button class="btn primary" id="btnAdd" data-t="addRestaurant"></button>
       <button class="btn" id="btnImport" data-t="importExcel"></button>
@@ -254,6 +256,8 @@ td.chk,th.chk{width:36px;cursor:default}
         <button class="btn" id="bulkAssign" data-t="assign"></button>
         <select id="bulkStatus"></select>
         <button class="btn" id="bulkSetStatus" data-t="setStatus"></button>
+        <select id="bulkData"></select>
+        <button class="btn" id="bulkSetData" data-t="setData"></button>
         <span style="flex:1"></span>
         <button class="btn ghost" style="color:#fff" id="bulkClear" data-t="clearSel"></button>
       </div>
@@ -268,6 +272,7 @@ td.chk,th.chk{width:36px;cursor:default}
             <th data-sort="rating" data-t="colRating"></th>
             <th data-sort="agent" data-t="colAgent"></th>
             <th data-sort="status" data-t="colStatus"></th>
+            <th data-sort="dataStatus" data-t="colData"></th>
             <th data-sort="updatedAt" data-t="colUpdated"></th>
           </tr></thead>
           <tbody id="rows"></tbody>
@@ -304,6 +309,8 @@ const STATUSES = ["new","called_no_appt","called_appt","met_unsigned","contract_
 const normSt = s => STATUSES.includes(s) ? s : "new";
 const stOf = r => normSt(r.status);
 const pipeStatuses = () => STATUSES;
+const DATA_STATUSES = ["call_send","call_appt","call_noresp","sent_phone","photo_full","photo_partial","complete"];
+const dLabel = d => DATA_STATUSES.includes(d) ? t("d_"+d) : "";
 const T = {
   ar:{appName:"متابعة المطاعم",setupTitle:"ربط قاعدة البيانات",setupText:"ضع إعدادات مشروع Firebase في الملف firebase-config.js على GitHub. للتجربة السريعة يمكنك لصقها هنا وستُحفظ في هذا المتصفح فقط.",setupLabel:"firebaseConfig (JSON)",setupSave:"حفظ والمتابعة",
     signIn:"تسجيل الدخول",signInText:"استخدم الحساب الذي أنشأه المدير في Firebase.",email:"البريد الإلكتروني",password:"كلمة المرور",signOut:"خروج",
@@ -327,7 +334,13 @@ const T = {
     of:"من",lang:"English",
     appointment:"الموعد",apptAt:"تاريخ ووقت الموعد",apptWith:"الشخص المسؤول في المطعم",apptNote:"ملاحظة الموعد",printAppt:"طباعة الموعد PDF",printAppts:"طباعة المواعيد",
     apptTitle:"تأكيد موعد زيارة",apptsTitle:"المواعيد القادمة",noAppt:"حدّد تاريخ ووقت الموعد أولًا.",noAppts:"لا توجد مواعيد قادمة ضمن الفلاتر الحالية.",
-    restaurant:"المطعم",printedBy:"طُبع بواسطة",printedAt:"تاريخ الطباعة",sigAgent:"توقيع المندوب",sigRest:"توقيع المطعم",apptCount:"موعد",time:"الوقت"},
+    restaurant:"المطعم",printedBy:"طُبع بواسطة",printedAt:"تاريخ الطباعة",sigAgent:"توقيع المندوب",sigRest:"توقيع المطعم",apptCount:"موعد",time:"الوقت",
+    deleteAgent:"حذف المندوب",deletedAgent:"محذوف",agentDeleted:"تم حذف المندوب",
+    confirmDeleteAgent:"حذف المندوب «{name}»؟\n\nالمطاعم المسندة إليه ({n}) لن تتغير: يبقى الإسناد والحالة والملاحظات والمواعيد والسجل كما هي، ويظل اسمه ظاهرًا عليها. يمكنك لاحقًا إعادة إسنادها لمندوب آخر.",
+    onlyAdmin:"حذف المندوبين متاح للمدير فقط.",
+    colData:"الداتا",dataStatus:"الداتا",allData:"كل حالات الداتا",noData:"بدون داتا",chooseData:"اختر حالة الداتا…",setData:"تغيير الداتا",
+    d_call_send:"تمت المكالمة + سترسل الداتا على الهاتف",d_call_appt:"تمت المكالمة + تحديد موعد",d_call_noresp:"تمت المكالمة دون تجاوب",
+    d_sent_phone:"تم إرسال الداتا عبر الهاتف",d_photo_full:"تم التصوير + داتا مكتملة",d_photo_partial:"تم التصوير + داتا غير مكتملة",d_complete:"الداتا مكتملة"},
   en:{appName:"Restaurant tracker",setupTitle:"Connect the database",setupText:"Put your Firebase project config in firebase-config.js on GitHub. For a quick trial you can paste it here; it is saved in this browser only.",setupLabel:"firebaseConfig (JSON)",setupSave:"Save and continue",
     signIn:"Sign in",signInText:"Use the account the admin created in Firebase.",email:"Email",password:"Password",signOut:"Sign out",
     tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"restaurants",
@@ -350,7 +363,13 @@ const T = {
     of:"of",lang:"العربية",
     appointment:"Appointment",apptAt:"Appointment date & time",apptWith:"Contact person at restaurant",apptNote:"Appointment note",printAppt:"Print appointment PDF",printAppts:"Print appointments",
     apptTitle:"Visit appointment",apptsTitle:"Upcoming appointments",noAppt:"Set the appointment date and time first.",noAppts:"No upcoming appointments in the current filters.",
-    restaurant:"Restaurant",printedBy:"Printed by",printedAt:"Printed on",sigAgent:"Agent signature",sigRest:"Restaurant signature",apptCount:"appointments",time:"Time"}
+    restaurant:"Restaurant",printedBy:"Printed by",printedAt:"Printed on",sigAgent:"Agent signature",sigRest:"Restaurant signature",apptCount:"appointments",time:"Time",
+    deleteAgent:"Delete agent",deletedAgent:"deleted",agentDeleted:"Agent deleted",
+    confirmDeleteAgent:"Delete agent “{name}”?\n\nTheir {n} assigned restaurants are not changed: assignment, status, notes, appointments and history all stay as they are, and the agent's name still shows on them. You can reassign them to someone else later.",
+    onlyAdmin:"Only the admin can delete agents.",
+    colData:"Data",dataStatus:"Data",allData:"All data states",noData:"No data status",chooseData:"Choose data status…",setData:"Set data",
+    d_call_send:"Called – will send data by phone",d_call_appt:"Called – appointment set",d_call_noresp:"Called – no response",
+    d_sent_phone:"Data sent by phone",d_photo_full:"Photographed – data complete",d_photo_partial:"Photographed – data incomplete",d_complete:"Data complete"}
 };
 let LANG = (()=>{ try{return localStorage.getItem("lang")||"ar"}catch{return "ar"} })();
 const t = k => T[LANG][k] ?? k;
@@ -407,7 +426,7 @@ const ACOL = collection(db, "agents");
    ========================================================= */
 const state = {
   ready:false, user:null, restaurants:new Map(), agents:new Map(),
-  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"",
+  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"", fData:"",
   sort:{key:"number",dir:1}, pageSize:150, shown:150, selected:new Set(),
   unsub:[]
 };
@@ -464,7 +483,11 @@ function dbError(err){
   el.textContent = explainError(err);
 }
 function toast(msg){ const el=document.createElement("div"); el.className="toast"; el.textContent=msg; el.setAttribute("role","status"); document.body.appendChild(el); setTimeout(()=>el.remove(),2600); }
-const myAgentId = () => { const e=(state.user?.email||"").toLowerCase(); for (const [id,a] of state.agents) if((a.email||"").toLowerCase()===e && e) return id; return null; };
+const myAgentId = () => { const e=(state.user?.email||"").toLowerCase(); for (const [id,a] of state.agents) if(!a.deleted && (a.email||"").toLowerCase()===e && e) return id; return null; };
+// Only this account may delete agents (also enforce it in Firestore rules)
+const ADMIN_EMAIL = "morshaheen@gmail.com";
+const isAdmin = () => (state.user?.email||"").toLowerCase()===ADMIN_EMAIL;
+const liveAgents = () => [...state.agents.values()].filter(a=>!a.deleted);
 
 /* =========================================================
    Auth flow
@@ -504,6 +527,8 @@ function baseFiltered(){ // all filters except status (pipeline shows distributi
     if (state.fAgent && !state.fAgent.startsWith("__") && r.assignedTo!==state.fAgent) return false;
     if (state.fCat && r.category!==state.fCat) return false;
     if (state.fArea && r._area!==state.fArea) return false;
+    if (state.fData==="__none" && DATA_STATUSES.includes(r.dataStatus)) return false;
+    if (state.fData && state.fData!=="__none" && r.dataStatus!==state.fData) return false;
     if (q){
       const hay = [r.name,r.phone,r.international_phone,r.address,r.category,r._area,r.number].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
@@ -515,7 +540,7 @@ function filtered(){
   const base = baseFiltered();
   const list = state.fStatus ? base.filter(r=>stOf(r)===state.fStatus) : base;
   const {key,dir} = state.sort;
-  const val = r => key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="status"? STATUSES.indexOf(stOf(r)) : key==="updatedAt"? toMs(r.updatedAt) : r[key];
+  const val = r => key==="agent"? agentName(r.assignedTo) : key==="area"? r._area : key==="status"? STATUSES.indexOf(stOf(r)) : key==="dataStatus"? (DATA_STATUSES.includes(r.dataStatus)?DATA_STATUSES.indexOf(r.dataStatus):null) : key==="updatedAt"? toMs(r.updatedAt) : r[key];
   list.sort((a,b)=>{ const x=val(a), y=val(b);
     if (x==null||x==="") return 1; if (y==null||y==="") return -1;
     return (typeof x==="number"&&typeof y==="number" ? x-y : String(x).localeCompare(String(y),LANG)) * dir; });
@@ -529,14 +554,18 @@ function renderAll(){
 }
 function opt(v,label,sel){ return `<option value="${esc(v)}"${v===sel?" selected":""}>${esc(label)}</option>`; }
 function renderFilters(){
-  const agents = [...state.agents.values()].sort((a,b)=>a.name.localeCompare(b.name,LANG));
+  // deleted agents stay in the filter only while restaurants are still assigned to them
+  const usedIds = new Set([...state.restaurants.values()].map(r=>r.assignedTo).filter(Boolean));
+  const agents = [...state.agents.values()].filter(a=>!a.deleted || usedIds.has(a.id) || state.fAgent===a.id).sort((a,b)=>a.name.localeCompare(b.name,LANG));
   const mine = myAgentId();
-  $("#fAgent").innerHTML = opt("",t("allAgents"),state.fAgent) + (mine?opt("__mine",t("mine"),state.fAgent):"") + opt("__none",t("unassigned"),state.fAgent) + agents.map(a=>opt(a.id,a.name+(a.active===false?" ("+t("inactive")+")":""),state.fAgent)).join("");
+  $("#fAgent").innerHTML = opt("",t("allAgents"),state.fAgent) + (mine?opt("__mine",t("mine"),state.fAgent):"") + opt("__none",t("unassigned"),state.fAgent) + agents.map(a=>opt(a.id,a.name+(a.deleted?" ("+t("deletedAgent")+")":a.active===false?" ("+t("inactive")+")":""),state.fAgent)).join("");
   const cats = [...new Set([...state.restaurants.values()].map(r=>r.category).filter(Boolean))].sort();
   $("#fCat").innerHTML = opt("",t("allCats"),state.fCat) + cats.map(c=>opt(c,c,state.fCat)).join("");
   const areas = [...new Set([...state.restaurants.values()].map(r=>r._area).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   $("#fArea").innerHTML = opt("",t("allAreas"),state.fArea) + areas.map(c=>opt(c,c,state.fArea)).join("");
-  const activeAgents = agents.filter(a=>a.active!==false);
+  $("#fData").innerHTML = opt("",t("allData"),state.fData) + opt("__none",t("noData"),state.fData) + DATA_STATUSES.map(d=>opt(d,dLabel(d),state.fData)).join("");
+  $("#bulkData").innerHTML = opt("",t("chooseData"),"") + opt("__none",t("noData"),"") + DATA_STATUSES.map(d=>opt(d,dLabel(d),"")).join("");
+  const activeAgents = agents.filter(a=>a.active!==false && !a.deleted);
   $("#bulkAgent").innerHTML = opt("",t("chooseAgent"),"") + opt("__none",t("unassigned"),"") + activeAgents.map(a=>opt(a.id,a.name,"")).join("");
   $("#bulkStatus").innerHTML = opt("",t("chooseStatus"),"") + STATUSES.map(s=>opt(s,sLabel(s),"")).join("");
 }
@@ -570,6 +599,7 @@ function renderList(){
       <td class="num">${r.rating!=null?`★ ${r.rating} <span class="sub">(${r.reviews??0})</span>`:""}</td>
       <td class="nw">${r.assignedTo?esc(agentName(r.assignedTo)):`<span class="unassigned">${t("unassigned")}</span>`}</td>
       <td>${chip(r.status)}${r.appointmentAt?`<div><span class="appt${apptMs(r.appointmentAt)<Date.now()?" past":""}">📅 ${esc(fmtAppt(r.appointmentAt,false))}</span></div>`:""}</td>
+      <td>${dLabel(r.dataStatus)?`<span class="dchip">${esc(dLabel(r.dataStatus))}</span>`:`<span class="sub">—</span>`}</td>
       <td class="sub nw">${fmtDate(r.updatedAt)}</td></tr>`).join("");
   const empty = state.restaurants.size===0;
   show("#emptyList", list.length===0);
@@ -607,7 +637,7 @@ document.querySelectorAll("th[data-sort]").forEach(th=>th.addEventListener("clic
   const k=th.dataset.sort; state.sort = {key:k, dir: state.sort.key===k ? -state.sort.dir : 1}; renderList();
 }));
 let qTimer; $("#q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{state.q=e.target.value; state.shown=state.pageSize; renderAll();},150); });
-["fAgent","fCat","fArea"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; state.shown=state.pageSize; renderAll(); });
+["fAgent","fCat","fArea","fData"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; state.shown=state.pageSize; renderAll(); });
 $("#bulkClear").onclick = ()=>{ state.selected.clear(); renderList(); };
 
 /* =========================================================
@@ -639,6 +669,11 @@ $("#bulkAssign").onclick = async ()=>{
   await bulkUpdate([...state.selected], {assignedTo: v==="__none"?null:v});
   toast(t("saved")); state.selected.clear(); renderList();
 };
+$("#bulkSetData").onclick = async ()=>{
+  const v = $("#bulkData").value; if(!v) return;
+  await bulkUpdate([...state.selected], {dataStatus: v==="__none"?null:v});
+  toast(t("saved")); state.selected.clear(); renderList();
+};
 $("#bulkSetStatus").onclick = async ()=>{
   const v = $("#bulkStatus").value; if(!v) return;
   await bulkUpdate([...state.selected], {status:v});
@@ -653,12 +688,15 @@ function closeOverlay(){ overlay.innerHTML=""; document.removeEventListener("key
 function escClose(e){ if(e.key==="Escape") closeOverlay(); }
 function openOverlay(html){ overlay.innerHTML = html; document.addEventListener("keydown",escClose); overlay.querySelector(".scrim")?.addEventListener("click",closeOverlay); overlay.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeOverlay); }
 function statusPicker(cur){ return `<div class="status-pick" role="group">${STATUSES.map(s=>`<button type="button" data-pick="${s}" aria-pressed="${normSt(cur)===s}"><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))}</button>`).join("")}</div>`; }
-function agentSelect(cur){
-  const ag = [...state.agents.values()].filter(a=>a.active!==false || a.id===cur).sort((a,b)=>a.name.localeCompare(b.name,LANG));
-  return `<select id="dAgent">${opt("",t("unassigned"),cur||"")}${ag.map(a=>opt(a.id,a.name,cur||"")).join("")}</select>`;
+function dataSelect(cur){
+  return `<select id="dData">${opt("","—",DATA_STATUSES.includes(cur)?cur:"")}${DATA_STATUSES.map(d=>opt(d,dLabel(d),cur||"")).join("")}</select>`;
 }
-function fieldLabel(k){ return ({assignedTo:t("agent"),status:t("status"),notes:t("notes"),appointmentAt:t("apptAt"),appointmentWith:t("apptWith"),appointmentNote:t("apptNote")})[k] || t(k) || k; }
-function fieldValue(k,v){ if(v==null||v==="") return "—"; if(k==="assignedTo") return agentName(v)||v; if(k==="status") return sLabel(v); if(k==="appointmentAt") return fmtAppt(v,false)||v; return String(v); }
+function agentSelect(cur){
+  const ag = [...state.agents.values()].filter(a=>(a.active!==false && !a.deleted) || a.id===cur).sort((a,b)=>a.name.localeCompare(b.name,LANG));
+  return `<select id="dAgent">${opt("",t("unassigned"),cur||"")}${ag.map(a=>opt(a.id,a.name+(a.deleted?" ("+t("deletedAgent")+")":""),cur||"")).join("")}</select>`;
+}
+function fieldLabel(k){ return ({assignedTo:t("agent"),status:t("status"),dataStatus:t("dataStatus"),notes:t("notes"),appointmentAt:t("apptAt"),appointmentWith:t("apptWith"),appointmentNote:t("apptNote")})[k] || t(k) || k; }
+function fieldValue(k,v){ if(v==null||v==="") return "—"; if(k==="assignedTo") return agentName(v)||v; if(k==="status") return sLabel(v); if(k==="dataStatus") return dLabel(v)||v; if(k==="appointmentAt") return fmtAppt(v,false)||v; return String(v); }
 function apptFields(r={}){
   return `<div class="appt-box"><h3>📅 ${t("appointment")}</h3><div class="grid2">
     <div><label for="dAppt">${t("apptAt")}</label><input id="dAppt" type="datetime-local" dir="ltr" value="${esc(r.appointmentAt||"")}"></div>
@@ -676,6 +714,7 @@ function openRestaurant(id){
       <button class="btn ghost" data-close aria-label="${t("close")}">✕</button></header>
     <div class="body">
       <label>${t("status")}</label>${statusPicker(r.status)}
+      <label for="dData">${t("dataStatus")}</label>${dataSelect(r.dataStatus)}
       <label for="dAgent">${t("agent")}</label>${agentSelect(r.assignedTo)}
       <label for="dNotes">${t("notes")}</label><textarea id="dNotes">${esc(r.notes||"")}</textarea>
       ${apptFields(r)}
@@ -696,7 +735,7 @@ function openRestaurant(id){
   let status = r.status||"new";
   overlay.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{ status=b.dataset.pick; overlay.querySelectorAll("[data-pick]").forEach(x=>x.setAttribute("aria-pressed",x===b)); if(status==="called_appt" && !$("#dAppt").value) $("#dAppt").focus(); });
   $("#dSave").onclick = async ()=>{
-    const changes = {status, assignedTo: $("#dAgent").value||null, notes: $("#dNotes").value.trim(), ...readAppt(), ...readEditFields()};
+    const changes = {status, dataStatus: $("#dData").value||null, assignedTo: $("#dAgent").value||null, notes: $("#dNotes").value.trim(), ...readAppt(), ...readEditFields()};
     $("#dSave").disabled = true;
     try{ await updateRestaurant(id, changes); toast(t("saved")); closeOverlay(); }
     catch(err){ $("#dSave").disabled=false; alert(err.message); }
@@ -732,6 +771,7 @@ $("#btnAdd").onclick = ()=>{
     <header><h2 id="nTitle">${t("newRestaurant")}</h2><button class="btn ghost" data-close aria-label="${t("close")}">✕</button></header>
     <div class="body">${editFields()}
       <label>${t("status")}</label>${statusPicker("new")}
+      <label for="dData">${t("dataStatus")}</label>${dataSelect(null)}
       <label for="dAgent">${t("agent")}</label>${agentSelect(null)}
       <label for="dNotes">${t("notes")}</label><textarea id="dNotes"></textarea>${apptFields()}<div class="err" id="nErr"></div></div>
     <footer><button class="btn primary" id="nSave">${t("addRestaurant")}</button><button class="btn" data-close>${t("cancel")}</button></footer></aside>`);
@@ -745,7 +785,7 @@ $("#btnAdd").onclick = ()=>{
     const by = state.user.email;
     const ref = doc(RCOL);
     $("#nSave").disabled=true;
-    await setDoc(ref, {...Object.fromEntries(EXCEL_FIELDS.map(k=>[k,null])), ...f, number:maxNo+1, status, assignedTo:$("#dAgent").value||null,
+    await setDoc(ref, {...Object.fromEntries(EXCEL_FIELDS.map(k=>[k,null])), ...f, number:maxNo+1, status, dataStatus:$("#dData").value||null, assignedTo:$("#dAgent").value||null,
       notes:$("#dNotes").value.trim(), ...readAppt(), source:"manual", createdAt:serverTimestamp(), createdBy:by, updatedAt:serverTimestamp(), updatedBy:by});
     await addDoc(collection(db,"restaurants",ref.id,"history"),{at:serverTimestamp(),by,field:"_created"});
     toast(t("added")); closeOverlay();
@@ -820,7 +860,7 @@ async function loadSeed(){
 $("#btnExport").onclick = ()=>{
   const {list} = filtered();
   const data = list.map(r=>{ const o={}; for (const k of EXCEL_FIELDS) o[k==="gstatus"?"status":k]=r[k]??"";
-    o.assigned_to = agentName(r.assignedTo); o.work_status = sLabel(r.status); o.notes = r.notes||""; o.appointment = r.appointmentAt ? r.appointmentAt.replace("T"," ") : ""; o.appointment_with = r.appointmentWith||""; o.appointment_note = r.appointmentNote||""; o.updated = fmtDate(r.updatedAt); return o; });
+    o.assigned_to = agentName(r.assignedTo); o.work_status = sLabel(r.status); o.data_status = dLabel(r.dataStatus); o.notes = r.notes||""; o.appointment = r.appointmentAt ? r.appointmentAt.replace("T"," ") : ""; o.appointment_with = r.appointmentWith||""; o.appointment_note = r.appointmentNote||""; o.updated = fmtDate(r.updatedAt); return o; });
   const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "restaurants");
   XLSX.writeFile(wb, `rably-restaurants-${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -889,6 +929,7 @@ function printAppointment(r){
       ${row(t("apptWith"), esc(r.appointmentWith||""))}
       ${row(t("agent"), [esc(ag?.name||""), ag?.phone?`<span class="ltr">${esc(ag.phone)}</span>`:""].filter(Boolean).join(" — "))}
       ${row(t("status"), esc(sLabel(r.status)))}
+      ${row(t("dataStatus"), esc(dLabel(r.dataStatus)))}
       ${row(t("apptNote"), esc(r.appointmentNote||""))}
       ${row(t("notes"), esc(r.notes||"").replace(/\n/g,"<br>"))}
       ${row(t("openMaps"), esc(link), true)}
@@ -943,7 +984,7 @@ $("#map").addEventListener("click",e=>{ const a=e.target.closest("[data-open]");
    Team
    ========================================================= */
 function renderTeam(){
-  const agents = [...state.agents.values()].sort((a,b)=>(a.active===false)-(b.active===false) || a.name.localeCompare(b.name,LANG));
+  const agents = liveAgents().sort((a,b)=>(a.active===false)-(b.active===false) || a.name.localeCompare(b.name,LANG));
   if (!agents.length){ $("#team").innerHTML = `<div class="empty" style="grid-column:1/-1"><strong>${t("noAgents")}</strong>${t("noAgentsText")}</div>`; return; }
   const by = {}; for (const r of state.restaurants.values()) if (r.assignedTo){ const c=(by[r.assignedTo] ||= {}); c[stOf(r)]=(c[stOf(r)]||0)+1; }
   const TS = pipeStatuses([...state.restaurants.values()]);
@@ -954,7 +995,8 @@ function renderTeam(){
       <div class="mini">${TS.map(s=>`<span style="flex-grow:${c[s]||0};background:var(--s-${s})"></span>`).join("")}</div>
       <div class="counts"><strong class="num">${tot} ${t("assignedTotal")}</strong>${TS.filter(s=>c[s]).map(s=>`<span><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))} ${c[s]}</span>`).join("")}</div>
       <div class="actions"><button class="btn" data-view="${a.id}">${t("viewList")}</button><button class="btn" data-edit="${a.id}">${t("edit")}</button>
-        <button class="btn" data-toggle="${a.id}">${a.active===false?t("activate"):t("deactivate")}</button></div></div>`;
+        <button class="btn" data-toggle="${a.id}">${a.active===false?t("activate"):t("deactivate")}</button>
+        ${isAdmin()?`<span style="flex:1"></span><button class="btn danger" data-delagent="${a.id}">${t("delete")}</button>`:""}</div></div>`;
   }).join("");
 }
 $("#team").addEventListener("click",async e=>{
@@ -962,7 +1004,19 @@ $("#team").addEventListener("click",async e=>{
   if (v){ state.fAgent=v.dataset.view; setTab("list"); renderAll(); }
   if (ed) agentForm(state.agents.get(ed.dataset.edit));
   if (tg){ const a=state.agents.get(tg.dataset.toggle); await updateDoc(doc(ACOL,a.id),{active:a.active===false}); }
+  const del=e.target.closest("[data-delagent]");
+  if (del) deleteAgent(del.dataset.delagent);
 });
+// Soft delete: only the agent document is marked as deleted.
+// Restaurants, their assignment, status, notes, appointments and history are never touched.
+async function deleteAgent(id){
+  if (!isAdmin()){ alert(t("onlyAdmin")); return; }
+  const a = state.agents.get(id); if(!a) return;
+  const n = [...state.restaurants.values()].filter(r=>r.assignedTo===id).length;
+  if (!confirm(t("confirmDeleteAgent").replace("{name}",a.name).replace("{n}",n))) return;
+  await updateDoc(doc(ACOL,id), {deleted:true, active:false, deletedAt:serverTimestamp(), deletedBy:state.user.email});
+  toast(t("agentDeleted"));
+}
 function agentForm(a){
   openOverlay(`<div class="scrim"></div><div class="modal" role="dialog" aria-modal="true" aria-labelledby="aTitle"><form class="box" id="aForm">
     <h2 id="aTitle">${a?t("editAgent"):t("addAgent")}</h2>
