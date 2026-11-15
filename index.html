@@ -88,6 +88,9 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .toolbar input[type=search]{flex:1 1 240px;width:auto}
 .toolbar select{width:auto;min-width:150px}
 .toolbar .grow{flex:1}
+.dayf{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;white-space:nowrap}
+.dayf input{width:auto}
+.dayf .btn{padding:6px 9px}
 .bulk{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);color:#fff;border-radius:10px;padding:8px 12px;margin-bottom:10px}
 .bulk select{width:auto;min-width:160px;color:var(--ink)}
 .bulk .btn{padding:6px 12px}
@@ -242,6 +245,7 @@ td.chk,th.chk{width:36px;cursor:default}
       <select id="fArea"></select>
       <select id="fData"></select>
       <select id="fMonth"></select>
+      <label class="dayf" for="fDay"><span data-t="signedDay"></span><input type="date" id="fDay" dir="ltr"><button type="button" class="btn hidden" id="fDayClear" aria-label="✕">✕</button></label>
       <span class="grow"></span>
       <button class="btn primary" id="btnAdd" data-t="addRestaurant"></button>
       <button class="btn" id="btnImport" data-t="importExcel"></button>
@@ -342,7 +346,7 @@ const T = {
     colData:"الداتا",dataStatus:"الداتا",allData:"كل حالات الداتا",noData:"بدون داتا",chooseData:"اختر حالة الداتا…",setData:"تغيير الداتا",
     d_call_send:"تمت المكالمة + سترسل الداتا على الهاتف",d_call_appt:"تمت المكالمة + تحديد موعد",d_call_noresp:"تمت المكالمة دون تجاوب",d_call_followup:"تمت المكالمة + يجب المتابعة",
     d_sent_phone:"تم إرسال الداتا عبر الهاتف",d_photo_full:"تم التصوير + داتا مكتملة",d_photo_partial:"تم التصوير + داتا غير مكتملة",d_complete:"الداتا مكتملة",
-    allMonths:"كل الأشهر (العقود)",signedAt:"تاريخ توقيع العقد",contracts:"عقد",contractsIn:"عقود شهر"},
+    allMonths:"كل الأشهر (العقود)",signedAt:"تاريخ توقيع العقد",contracts:"عقد",contractsIn:"عقود شهر",signedDay:"يوم التوقيع",contractsOn:"عقود يوم"},
   en:{appName:"Restaurant tracker",setupTitle:"Connect the database",setupText:"Put your Firebase project config in firebase-config.js on GitHub. For a quick trial you can paste it here; it is saved in this browser only.",setupLabel:"firebaseConfig (JSON)",setupSave:"Save and continue",
     signIn:"Sign in",signInText:"Use the account the admin created in Firebase.",email:"Email",password:"Password",signOut:"Sign out",
     tabList:"List",tabMap:"Map",tabTeam:"Team",restaurants:"restaurants",
@@ -372,7 +376,7 @@ const T = {
     colData:"Data",dataStatus:"Data",allData:"All data states",noData:"No data status",chooseData:"Choose data status…",setData:"Set data",
     d_call_send:"Called – will send data by phone",d_call_appt:"Called – appointment set",d_call_noresp:"Called – no response",d_call_followup:"Called – follow-up needed",
     d_sent_phone:"Data sent by phone",d_photo_full:"Photographed – data complete",d_photo_partial:"Photographed – data incomplete",d_complete:"Data complete",
-    allMonths:"All months (contracts)",signedAt:"Contract signed on",contracts:"contracts",contractsIn:"contracts in"}
+    allMonths:"All months (contracts)",signedAt:"Contract signed on",contracts:"contracts",contractsIn:"contracts in",signedDay:"Signed on",contractsOn:"contracts signed on"}
 };
 let LANG = (()=>{ try{return localStorage.getItem("lang")||"ar"}catch{return "ar"} })();
 const t = k => T[LANG][k] ?? k;
@@ -429,7 +433,7 @@ const ACOL = collection(db, "agents");
    ========================================================= */
 const state = {
   ready:false, user:null, restaurants:new Map(), agents:new Map(),
-  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"", fData:"", fMonth:"",
+  tab:"list", fStatus:null, q:"", fAgent:"", fCat:"", fArea:"", fData:"", fMonth:"", fDay:"",
   sort:{key:"number",dir:1}, pageSize:150, shown:150, selected:new Set(),
   unsub:[]
 };
@@ -454,6 +458,8 @@ const pad2 = n => String(n).padStart(2,"0");
 const msToDay = ms => { const d=new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
 const todayStr = () => msToDay(Date.now());
 const signedMonth = r => stOf(r)==="signed" && r.signedAt ? String(r.signedAt).slice(0,7) : "";
+const signedDay = r => stOf(r)==="signed" && r.signedAt ? String(r.signedAt).slice(0,10) : "";
+const fmtDay = d => new Date(d+"T00:00").toLocaleDateString(LANG==="ar"?"ar-SY-u-nu-latn":"en-GB",{day:"numeric",month:"short",year:"numeric"});
 const fmtMonth = ym => new Date(ym+"-01T00:00").toLocaleDateString(LANG==="ar"?"ar-SY-u-nu-latn":"en-GB",{month:"long",year:"numeric"});
 // keep signedAt in step with the status: set it when a restaurant becomes "signed", clear it when it stops being signed
 function withSigned(r, ch){
@@ -539,7 +545,8 @@ function baseFiltered(skipMonth=false){ // all filters except status (pipeline s
   const q = state.q.trim().toLowerCase();
   const mine = state.fAgent==="__mine" ? myAgentId() : null;
   return [...state.restaurants.values()].filter(r=>{
-    if (!skipMonth && state.fMonth && signedMonth(r)!==state.fMonth) return false;
+    if (!skipMonth && state.fDay && signedDay(r)!==state.fDay) return false;
+    if (!skipMonth && !state.fDay && state.fMonth && signedMonth(r)!==state.fMonth) return false;
     if (state.fAgent==="__none" && r.assignedTo) return false;
     if (state.fAgent==="__mine" && r.assignedTo!==mine) return false;
     if (state.fAgent && !state.fAgent.startsWith("__") && r.assignedTo!==state.fAgent) return false;
@@ -588,6 +595,8 @@ function renderFilters(){
   if (state.fMonth && !mCounts.has(state.fMonth)) mCounts.set(state.fMonth,0);
   const months = [...mCounts.keys()].sort().reverse();
   $("#fMonth").innerHTML = opt("",t("allMonths"),state.fMonth) + months.map(m=>opt(m,`${fmtMonth(m)} — ${mCounts.get(m)} ${t("contracts")}`,state.fMonth)).join("");
+  if (document.activeElement!==$("#fDay")) $("#fDay").value = state.fDay;
+  show("#fDayClear", !!state.fDay);
   $("#bulkData").innerHTML = opt("",t("chooseData"),"") + opt("__none",t("noData"),"") + DATA_STATUSES.map(d=>opt(d,dLabel(d),"")).join("");
   const activeAgents = agents.filter(a=>a.active!==false && !a.deleted);
   $("#bulkAgent").innerHTML = opt("",t("chooseAgent"),"") + opt("__none",t("unassigned"),"") + activeAgents.map(a=>opt(a.id,a.name,"")).join("");
@@ -600,7 +609,9 @@ function renderPipeline(){
   base.forEach(r=>counts[stOf(r)]++);
   const total = base.length || 1;
   $("#pTotal").textContent = base.length.toLocaleString("en");
-  $("#pLbl").textContent = state.fMonth
+  $("#pLbl").textContent = state.fDay
+    ? `${t("contractsOn")} ${fmtDay(state.fDay)}`
+    : state.fMonth
     ? `${t("contractsIn")} ${fmtMonth(state.fMonth)}`
     : t("restaurants") + (base.length!==state.restaurants.size ? ` (${t("of")} ${state.restaurants.size})` : "");
   $("#pBar").innerHTML = PS.map(s=>`<span title="${esc(sLabel(s))}: ${counts[s]}" style="flex-grow:${counts[s]};background:var(--s-${s})"></span>`).join("");
@@ -624,7 +635,7 @@ function renderList(){
       <td class="num" dir="ltr" style="text-align:${LANG==="ar"?"right":"left"}">${esc(r.phone||"")}</td>
       <td class="num">${r.rating!=null?`★ ${r.rating} <span class="sub">(${r.reviews??0})</span>`:""}</td>
       <td class="nw">${r.assignedTo?esc(agentName(r.assignedTo)):`<span class="unassigned">${t("unassigned")}</span>`}</td>
-      <td>${chip(r.status)}${r.appointmentAt?`<div><span class="appt${apptMs(r.appointmentAt)<Date.now()?" past":""}">📅 ${esc(fmtAppt(r.appointmentAt,false))}</span></div>`:""}</td>
+      <td>${chip(r.status)}${r.appointmentAt?`<div><span class="appt${apptMs(r.appointmentAt)<Date.now()?" past":""}">📅 ${esc(fmtAppt(r.appointmentAt,false))}</span></div>`:""}${signedDay(r)?`<div><span class="appt past">✍ ${esc(fmtDay(signedDay(r)))}</span></div>`:""}</td>
       <td>${dLabel(r.dataStatus)?`<span class="dchip">${esc(dLabel(r.dataStatus))}</span>`:`<span class="sub">—</span>`}</td>
       <td class="sub nw">${fmtDate(r.updatedAt)}</td></tr>`).join("");
   const empty = state.restaurants.size===0;
@@ -663,7 +674,10 @@ document.querySelectorAll("th[data-sort]").forEach(th=>th.addEventListener("clic
   const k=th.dataset.sort; state.sort = {key:k, dir: state.sort.key===k ? -state.sort.dir : 1}; renderList();
 }));
 let qTimer; $("#q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{state.q=e.target.value; state.shown=state.pageSize; renderAll();},150); });
-["fAgent","fCat","fArea","fData","fMonth"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; state.shown=state.pageSize; renderAll(); });
+["fAgent","fCat","fArea","fData","fMonth"].forEach(id=>$("#"+id).onchange=e=>{ state[id]=e.target.value; if(id==="fMonth") state.fDay=""; state.shown=state.pageSize; renderAll(); });
+const setDay = v=>{ state.fDay = /^\d{4}-\d{2}-\d{2}$/.test(v)?v:""; if(state.fDay) state.fMonth=""; state.shown=state.pageSize; $("#fDay").value=state.fDay; renderAll(); };
+$("#fDay").onchange = e=>setDay(e.target.value);
+$("#fDayClear").onclick = e=>{ e.preventDefault(); setDay(""); };
 $("#bulkClear").onclick = ()=>{ state.selected.clear(); renderList(); };
 
 /* =========================================================
