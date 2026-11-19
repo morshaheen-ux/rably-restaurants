@@ -33,6 +33,7 @@ html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Ple
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .hidden{display:none!important}
+body.viewer .adm,body.viewer .chk,body.viewer #bulk{display:none!important}
 .num{font-variant-numeric:tabular-nums}
 
 /* ---------- gate screens ---------- */
@@ -247,8 +248,8 @@ td.chk,th.chk{width:36px;cursor:default}
       <select id="fMonth"></select>
       <label class="dayf" for="fDay"><span data-t="signedDay"></span><input type="date" id="fDay" dir="ltr"><button type="button" class="btn hidden" id="fDayClear" aria-label="✕">✕</button></label>
       <span class="grow"></span>
-      <button class="btn primary" id="btnAdd" data-t="addRestaurant"></button>
-      <button class="btn" id="btnImport" data-t="importExcel"></button>
+      <button class="btn primary adm" id="btnAdd" data-t="addRestaurant"></button>
+      <button class="btn adm" id="btnImport" data-t="importExcel"></button>
       <button class="btn" id="btnExport" data-t="exportExcel"></button>
       <button class="btn" id="btnPrintAppts" data-t="printAppts"></button>
       <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" class="hidden">
@@ -290,7 +291,7 @@ td.chk,th.chk{width:36px;cursor:default}
     <section id="view-map" class="hidden"><div id="map"></div></section>
 
     <section id="view-team" class="hidden">
-      <div class="toolbar"><span class="grow"></span><button class="btn primary" id="btnAddAgent" data-t="addAgent"></button></div>
+      <div class="toolbar"><span class="grow"></span><button class="btn primary adm" id="btnAddAgent" data-t="addAgent"></button></div>
       <div class="team-grid" id="team"></div>
     </section>
   </main>
@@ -342,7 +343,7 @@ const T = {
     restaurant:"المطعم",printedBy:"طُبع بواسطة",printedAt:"تاريخ الطباعة",sigAgent:"توقيع المندوب",sigRest:"توقيع المطعم",apptCount:"موعد",time:"الوقت",
     deleteAgent:"حذف المندوب",deletedAgent:"محذوف",agentDeleted:"تم حذف المندوب",
     confirmDeleteAgent:"حذف المندوب «{name}»؟\n\nالمطاعم المسندة إليه ({n}) لن تتغير: يبقى الإسناد والحالة والملاحظات والمواعيد والسجل كما هي، ويظل اسمه ظاهرًا عليها. يمكنك لاحقًا إعادة إسنادها لمندوب آخر.",
-    onlyAdmin:"حذف المندوبين متاح للمدير فقط.",
+    onlyAdmin:"حذف المندوبين متاح للمدير فقط.",viewOnly:"عرض فقط",noPerm:"هذا الحساب للعرض فقط. الإضافة والتعديل والحذف متاحة للمدراء فقط.",
     colData:"الداتا",dataStatus:"الداتا",allData:"كل حالات الداتا",noData:"بدون داتا",chooseData:"اختر حالة الداتا…",setData:"تغيير الداتا",
     d_call_send:"تمت المكالمة + سترسل الداتا على الهاتف",d_call_appt:"تمت المكالمة + تحديد موعد",d_call_noresp:"تمت المكالمة دون تجاوب",d_call_followup:"تمت المكالمة + يجب المتابعة",
     d_sent_phone:"تم إرسال الداتا عبر الهاتف",d_photo_full:"تم التصوير + داتا مكتملة",d_photo_partial:"تم التصوير + داتا غير مكتملة",d_complete:"الداتا مكتملة",
@@ -372,7 +373,7 @@ const T = {
     restaurant:"Restaurant",printedBy:"Printed by",printedAt:"Printed on",sigAgent:"Agent signature",sigRest:"Restaurant signature",apptCount:"appointments",time:"Time",
     deleteAgent:"Delete agent",deletedAgent:"deleted",agentDeleted:"Agent deleted",
     confirmDeleteAgent:"Delete agent “{name}”?\n\nTheir {n} assigned restaurants are not changed: assignment, status, notes, appointments and history all stay as they are, and the agent's name still shows on them. You can reassign them to someone else later.",
-    onlyAdmin:"Only the admin can delete agents.",
+    onlyAdmin:"Only the admin can delete agents.",viewOnly:"View only",noPerm:"This account is view-only. Only admins can add, edit or delete.",
     colData:"Data",dataStatus:"Data",allData:"All data states",noData:"No data status",chooseData:"Choose data status…",setData:"Set data",
     d_call_send:"Called – will send data by phone",d_call_appt:"Called – appointment set",d_call_noresp:"Called – no response",d_call_followup:"Called – follow-up needed",
     d_sent_phone:"Data sent by phone",d_photo_full:"Photographed – data complete",d_photo_partial:"Photographed – data incomplete",d_complete:"Data complete",
@@ -506,9 +507,18 @@ function dbError(err){
 }
 function toast(msg){ const el=document.createElement("div"); el.className="toast"; el.textContent=msg; el.setAttribute("role","status"); document.body.appendChild(el); setTimeout(()=>el.remove(),2600); }
 const myAgentId = () => { const e=(state.user?.email||"").toLowerCase(); for (const [id,a] of state.agents) if(!a.deleted && (a.email||"").toLowerCase()===e && e) return id; return null; };
-// Only this account may delete agents (also enforce it in Firestore rules)
-const ADMIN_EMAIL = "morshaheen@gmail.com";
-const isAdmin = () => (state.user?.email||"").toLowerCase()===ADMIN_EMAIL;
+// Only these accounts may add, edit or delete. Everyone else is view-only.
+// Keep this list identical to the one in firestore.rules (the rules are what really enforce it).
+const ADMIN_EMAILS = new Set([
+  "morshaheen@gmail.com",
+  "sedra.rably@mazmail.online",
+  "hamzazahab098@gmail.com",
+  "zarad.rably@mazmail.online",
+  "mutaz.rably@mazmail.online",
+  "roro38126@gmail.com"
+]);
+const isAdmin = () => ADMIN_EMAILS.has((state.user?.email||"").trim().toLowerCase());
+const needAdmin = () => { if (isAdmin()) return true; toast(t("noPerm")); return false; };
 const liveAgents = () => [...state.agents.values()].filter(a=>!a.deleted);
 
 /* =========================================================
@@ -519,7 +529,7 @@ onAuthStateChanged(auth, user=>{
   state.user = user;
   if (!user){ show("#app",false); show("#login"); return; }
   show("#login",false); show("#app");
-  $("#me").textContent = user.email;
+  document.body.classList.toggle("viewer", !isAdmin());
   state.unsub.push(onSnapshot(ACOL, snap=>{
     state.agents = new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));
     state.ready = true; renderAll();
@@ -573,6 +583,7 @@ function filtered(){
 }
 function renderAll(){
   if (!state.ready) return;
+  $("#me").textContent = state.user ? state.user.email + (isAdmin() ? "" : " · " + t("viewOnly")) : "";
   renderFilters(); renderPipeline(); renderList();
   if (state.tab==="map") renderMap();
   if (state.tab==="team") renderTeam();
@@ -641,7 +652,7 @@ function renderList(){
   const empty = state.restaurants.size===0;
   show("#emptyList", list.length===0);
   $("#emptyList").innerHTML = empty
-    ? `<strong>${t("emptyDb")}</strong>${t("emptyDbText")}<div style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="btn primary" id="btnSeed">${t("loadSeed")}</button></div>`
+    ? `<strong>${t("emptyDb")}</strong>${t("emptyDbText")}<div style="margin-top:14px;display:flex;gap:8px;justify-content:center"><button class="btn primary adm" id="btnSeed">${t("loadSeed")}</button></div>`
     : `<strong>${t("noResults")}</strong>${t("noResultsText")}`;
   if (empty) $("#btnSeed").onclick = loadSeed;
   show("#moreWrap", list.length>state.shown);
@@ -684,6 +695,7 @@ $("#bulkClear").onclick = ()=>{ state.selected.clear(); renderList(); };
    Writes (with history)
    ========================================================= */
 async function updateRestaurant(id, changes){
+  if (!needAdmin()) return false;
   const r = state.restaurants.get(id); if(!r) return;
   changes = withSigned(r, {...changes});
   const diffs = Object.entries(changes).filter(([k,v])=> (r[k]??null) !== (v??null));
@@ -695,6 +707,7 @@ async function updateRestaurant(id, changes){
   return true;
 }
 async function bulkUpdate(ids, changes){
+  if (!needAdmin()) return;
   const by = state.user.email; let batch = writeBatch(db), n = 0;
   for (const id of ids){
     const r = state.restaurants.get(id); if(!r) continue;
@@ -710,7 +723,7 @@ async function bulkUpdate(ids, changes){
 // uses the date in the history when the status was set to "signed" (else created/updated date).
 let backfillStarted = false;
 async function backfillSigned(){
-  if (backfillStarted) return; backfillStarted = true;
+  if (backfillStarted || !isAdmin()) return; backfillStarted = true;
   const todo = [...state.restaurants.values()].filter(r=>stOf(r)==="signed" && !r.signedAt);
   for (const r of todo){
     try{
@@ -816,7 +829,11 @@ function openRestaurant(id){
     const a = readAppt(); if(!a.appointmentAt){ alert(t("noAppt")); return; }
     printAppointment({...r, ...a, assignedTo: $("#dAgent").value||null});
   };
-  $("#dDel").onclick = async ()=>{ if(!confirm(t("confirmDelete"))) return; await deleteDoc(doc(RCOL,id)); toast(t("deleted")); closeOverlay(); };
+  $("#dDel").onclick = async ()=>{ if(!needAdmin() || !confirm(t("confirmDelete"))) return; await deleteDoc(doc(RCOL,id)); toast(t("deleted")); closeOverlay(); };
+  if (!isAdmin()){ // view-only: show everything, change nothing
+    overlay.querySelectorAll(".drawer .body input,.drawer .body select,.drawer .body textarea,.drawer .body [data-pick]").forEach(el=>el.disabled=true);
+    overlay.querySelector(".drawer details")?.remove(); $("#dSave").remove(); $("#dDel").remove();
+  }
   getDocs(query(collection(db,"restaurants",id,"history"),orderBy("at","desc"),limit(50))).then(snap=>{
     const items = snap.docs.map(d=>d.data());
     const el = $("#hist"); if(!el) return;
@@ -837,6 +854,7 @@ function readEditFields(){
   return o;
 }
 $("#btnAdd").onclick = ()=>{
+  if (!needAdmin()) return;
   openOverlay(`<div class="scrim"></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="nTitle">
     <header><h2 id="nTitle">${t("newRestaurant")}</h2><button class="btn ghost" data-close aria-label="${t("close")}">✕</button></header>
     <div class="body">${editFields()}
@@ -883,6 +901,7 @@ function cleanRow(raw){
   return o;
 }
 async function runImport(rows, label){
+  if (!needAdmin()) return;
   const existing = new Map(); for (const r of state.restaurants.values()) existing.set(matchKey(r), r);
   const plan = {neu:[],chg:[],same:0,skip:0};
   for (const raw of rows){
@@ -1065,8 +1084,8 @@ function renderTeam(){
       <h3>${esc(a.name)}</h3><div class="meta" dir="auto">${esc([a.phone,a.email].filter(Boolean).join(" — "))}${a.active===false?" — "+t("inactive"):""}</div>
       <div class="mini">${TS.map(s=>`<span style="flex-grow:${c[s]||0};background:var(--s-${s})"></span>`).join("")}</div>
       <div class="counts"><strong class="num">${tot} ${t("assignedTotal")}</strong>${TS.filter(s=>c[s]).map(s=>`<span><span class="dot" style="background:var(--s-${s})"></span>${esc(sLabel(s))} ${c[s]}</span>`).join("")}</div>
-      <div class="actions"><button class="btn" data-view="${a.id}">${t("viewList")}</button><button class="btn" data-edit="${a.id}">${t("edit")}</button>
-        <button class="btn" data-toggle="${a.id}">${a.active===false?t("activate"):t("deactivate")}</button>
+      <div class="actions"><button class="btn" data-view="${a.id}">${t("viewList")}</button><button class="btn adm" data-edit="${a.id}">${t("edit")}</button>
+        <button class="btn adm" data-toggle="${a.id}">${a.active===false?t("activate"):t("deactivate")}</button>
         ${isAdmin()?`<span style="flex:1"></span><button class="btn danger" data-delagent="${a.id}">${t("delete")}</button>`:""}</div></div>`;
   }).join("");
 }
@@ -1074,7 +1093,7 @@ $("#team").addEventListener("click",async e=>{
   const v=e.target.closest("[data-view]"), ed=e.target.closest("[data-edit]"), tg=e.target.closest("[data-toggle]");
   if (v){ state.fAgent=v.dataset.view; setTab("list"); renderAll(); }
   if (ed) agentForm(state.agents.get(ed.dataset.edit));
-  if (tg){ const a=state.agents.get(tg.dataset.toggle); await updateDoc(doc(ACOL,a.id),{active:a.active===false}); }
+  if (tg && needAdmin()){ const a=state.agents.get(tg.dataset.toggle); await updateDoc(doc(ACOL,a.id),{active:a.active===false}); }
   const del=e.target.closest("[data-delagent]");
   if (del) deleteAgent(del.dataset.delagent);
 });
@@ -1089,6 +1108,7 @@ async function deleteAgent(id){
   toast(t("agentDeleted"));
 }
 function agentForm(a){
+  if (!needAdmin()) return;
   openOverlay(`<div class="scrim"></div><div class="modal" role="dialog" aria-modal="true" aria-labelledby="aTitle"><form class="box" id="aForm">
     <h2 id="aTitle">${a?t("editAgent"):t("addAgent")}</h2>
     <label for="aName">${t("agentName")}</label><input id="aName" required value="${esc(a?.name||"")}">
