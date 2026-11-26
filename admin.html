@@ -48,6 +48,8 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
 .filters select{width:auto;min-width:160px;flex:0 1 220px}
 .filters .grow{flex:1}
+.dr{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;white-space:nowrap}
+.dr input{width:auto}
 
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
@@ -88,7 +90,7 @@ main{padding:20px;max-width:1400px;margin:0 auto}
 .bars.data .bar-row{grid-template-columns:minmax(120px,44%) 1fr 84px}
 .bars.data .tr span{background:var(--ink-2)}
 .bar-row .n{font-weight:700;white-space:nowrap}
-.bar-row .n small{font-weight:500;color:var(--muted);font-size:12px;margin-inline-start:6px}
+.bar-row .n small{font-weight:500;color:var(--muted);font-size:12px;margin-inline-start:8px;display:inline-block}
 .more{display:flex;justify-content:center;padding:10px 0 0}
 
 .tw{overflow:auto}
@@ -173,6 +175,8 @@ table.mx tfoot th,table.mx tfoot td{border-top:1px solid var(--line);border-radi
       <select id="fArea" aria-label="Area"></select>
       <select id="fCat" aria-label="Speciality"></select>
       <select id="fMonth" aria-label="Month"></select>
+      <span class="dr"><label class="dr" for="fFrom"><span data-t="from"></span><input type="date" id="fFrom" dir="ltr"></label>
+      <label class="dr" for="fTo"><span data-t="to"></span><input type="date" id="fTo" dir="ltr"></label></span>
       <button class="btn hidden" id="btnClear" data-t="clear"></button>
       <span class="grow"></span>
     </div>
@@ -205,15 +209,16 @@ const T = {
     s_new:"لم يبدأ",s_called_no_appt:"مكالمة + موعد غير محجوز",s_called_appt:"مكالمة + موعد محجوز",s_met_unsigned:"تمت المقابلة دون توقيع",s_contract_incomplete:"عقد غير مكتمل",s_signed:"تم توقيع العقد",
     d_call_send:"تمت المكالمة + سترسل الداتا على الهاتف",d_call_appt:"تمت المكالمة + تحديد موعد",d_call_noresp:"تمت المكالمة دون تجاوب",d_call_followup:"تمت المكالمة + يجب المتابعة",
     d_sent_phone:"تم إرسال الداتا عبر الهاتف",d_photo_full:"تم التصوير + داتا مكتملة",d_photo_partial:"تم التصوير + داتا غير مكتملة",d_complete:"الداتا مكتملة",noData:"بدون داتا",
+    from:"وُقّع من",to:"إلى",kSignedR:"عقود موقّعة في الفترة",since:"منذ",until:"حتى",
     kTotal:"المطاعم",kSigned:"عقود موقّعة",kSignedP:"عقود موقّعة في",kProg:"قيد العمل",kProgS:"بدأ العمل ولم يوقَّع بعد",kNew:"لم يبدأ",kAppt:"مواعيد قادمة",kApptS:"من اليوم فصاعدًا",kUn:"غير مُسند",kUnS:"بلا مندوب",
     ofN:"من {n} مطعم",pct:"من الإجمالي",
-    pPipe:"توزيع الحالات",pPipeH:"كل المطاعم ضمن الفلاتر الحالية (لا يتأثر بفلتر الشهر).",
+    pPipe:"توزيع الحالات",pPipeH:"كل المطاعم ضمن الفلاتر الحالية (لا يتأثر بفلاتر الشهر والتاريخ).",
     pMonths:"العقود الموقّعة شهريًا",pMonthsH:"اضغط على شهر لعرض تقاريره فقط، واضغط مرة أخرى للإلغاء.",noDate:"عقد بدون تاريخ توقيع",
-    pAgents:"أداء المندوبين",pAgentsH:"المطاعم المسندة لكل مندوب وتوزيع حالاتها. عمود العقود يتبع فلتر الشهر، ونسبة التوقيع محسوبة على كل الفترات.",
+    pAgents:"أداء المندوبين",pAgentsH:"المطاعم المسندة لكل مندوب وتوزيع حالاتها. عمود العقود يتبع فلاتر الشهر والتاريخ، ونسبة التوقيع محسوبة على كل الفترات.",
     cAgent:"المندوب",cAssigned:"مُسند",cDist:"توزيع الحالات",cSigned:"عقود",cRate:"نسبة التوقيع",cAppts:"مواعيد قادمة",
     pArea:"العقود الموقّعة حسب المنطقة",pCat:"العقود الموقّعة حسب تخصص المطعم",barH:"الرقم = عدد العقود، وبجانبه إجمالي المطاعم ونسبة التوقيع. اضغط على سطر لتصفية التقرير.",
     pMx:"المنطقة × التخصص",pMxH:"عدد العقود الموقّعة لكل تخصص داخل كل منطقة (أعلى 12 منطقة). كلما كان اللون أغمق كان العدد أكبر.",
-    pData:"تقدّم الداتا",pDataH:"عدد المطاعم في كل حالة داتا (لا يتأثر بفلتر الشهر).",
+    pData:"تقدّم الداتا",pDataH:"عدد المطاعم في كل حالة داتا (لا يتأثر بفلاتر الشهر والتاريخ).",
     pRecent:"أحدث العقود",pRecentH:"آخر 15 عقدًا ضمن الفلاتر الحالية.",cRest:"المطعم",cArea:"المنطقة",cCat:"التخصص",cDate:"تاريخ التوقيع",
     noArea:"منطقة غير محددة",noCat:"بدون تصنيف",other:"أخرى",total:"المجموع",showAll:"عرض الكل",showLess:"عرض أقل",contracts:"عقد",of:"من",
     none:"لا توجد عقود موقّعة ضمن الفلاتر الحالية.",loading:"جارٍ تحميل البيانات…"},
@@ -225,15 +230,16 @@ const T = {
     s_new:"Not started",s_called_no_appt:"Called – no appointment booked",s_called_appt:"Called – appointment booked",s_met_unsigned:"Met – not signed",s_contract_incomplete:"Contract incomplete",s_signed:"Contract signed",
     d_call_send:"Called – will send data by phone",d_call_appt:"Called – appointment set",d_call_noresp:"Called – no response",d_call_followup:"Called – follow-up needed",
     d_sent_phone:"Data sent by phone",d_photo_full:"Photographed – data complete",d_photo_partial:"Photographed – data incomplete",d_complete:"Data complete",noData:"No data status",
+    from:"Signed from",to:"to",kSignedR:"Contracts signed in period",since:"since",until:"until",
     kTotal:"Restaurants",kSigned:"Signed contracts",kSignedP:"Contracts signed in",kProg:"In progress",kProgS:"started, not signed yet",kNew:"Not started",kAppt:"Upcoming appointments",kApptS:"from today onward",kUn:"Unassigned",kUnS:"no agent",
     ofN:"of {n} restaurants",pct:"of total",
-    pPipe:"Status breakdown",pPipeH:"All restaurants in the current filters (not affected by the month filter).",
+    pPipe:"Status breakdown",pPipeH:"All restaurants in the current filters (not affected by the month and date filters).",
     pMonths:"Contracts signed per month",pMonthsH:"Click a month to see only its reports; click again to clear.",noDate:"contracts without a signing date",
-    pAgents:"Agent performance",pAgentsH:"Restaurants assigned to each agent and their status mix. The contracts column follows the month filter; sign rate is all-time.",
+    pAgents:"Agent performance",pAgentsH:"Restaurants assigned to each agent and their status mix. The contracts column follows the month and date filters; sign rate is all-time.",
     cAgent:"Agent",cAssigned:"Assigned",cDist:"Status mix",cSigned:"Contracts",cRate:"Sign rate",cAppts:"Upcoming appts",
     pArea:"Signed contracts by area",pCat:"Signed contracts by restaurant speciality",barH:"The number is contracts, followed by total restaurants and the sign rate. Click a row to filter the report.",
     pMx:"Area × speciality",pMxH:"Signed contracts for each speciality inside each area (top 12 areas). Darker means more.",
-    pData:"Data progress",pDataH:"Restaurants in each data status (not affected by the month filter).",
+    pData:"Data progress",pDataH:"Restaurants in each data status (not affected by the month and date filters).",
     pRecent:"Latest contracts",pRecentH:"The 15 most recent contracts in the current filters.",cRest:"Restaurant",cArea:"Area",cCat:"Speciality",cDate:"Signed on",
     noArea:"Area not set",noCat:"No category",other:"Other",total:"Total",showAll:"Show all",showLess:"Show less",contracts:"contracts",of:"of",
     none:"No signed contracts match the current filters.",loading:"Loading data…"}
@@ -268,7 +274,7 @@ if (new URLSearchParams(location.search).has("emulator")) {
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
 }
 
-const state = { user:null, R:[], A:new Map(), gotR:false, fAgent:"", fArea:"", fCat:"", fMonth:"", all:{area:false,cat:false}, unsub:[] };
+const state = { user:null, R:[], A:new Map(), gotR:false, fAgent:"", fArea:"", fCat:"", fMonth:"", fFrom:"", fTo:"", all:{area:false,cat:false}, unsub:[] };
 function areaOf(r){
   if (r.area) return r.area;
   const parts = String(r.address||"").split(",").map(s=>s.trim()).filter(Boolean);
@@ -281,6 +287,14 @@ const isSigned = r => stOf(r)==="signed";
 const signedMonth = r => isSigned(r) && r.signedAt ? String(r.signedAt).slice(0,7) : "";
 const fmtMonth = (ym,short) => new Date(ym+"-01T00:00").toLocaleDateString(LOC(), short?{month:"short",year:"2-digit"}:{month:"long",year:"numeric"});
 const fmtDay = d => d ? new Date(String(d).slice(0,10)+"T00:00").toLocaleDateString(LOC(),{day:"numeric",month:"short",year:"numeric"}) : "—";
+const signedDay = r => isSigned(r) && r.signedAt ? String(r.signedAt).slice(0,10) : "";
+const hasPeriod = () => !!(state.fMonth||state.fFrom||state.fTo);
+// signed contract inside the chosen month or date range (contracts without a signing date only count when no period is chosen)
+const inPeriod = r => isSigned(r) && (!state.fMonth || signedMonth(r)===state.fMonth)
+  && (!(state.fFrom||state.fTo) || (signedDay(r) && (!state.fFrom || signedDay(r)>=state.fFrom) && (!state.fTo || signedDay(r)<=state.fTo)));
+const periodLabel = short => state.fMonth ? fmtMonth(state.fMonth,short)
+  : state.fFrom && state.fTo ? (state.fFrom===state.fTo ? fmtDay(state.fFrom) : `${fmtDay(state.fFrom)} – ${fmtDay(state.fTo)}`)
+  : state.fFrom ? `${t("since")} ${fmtDay(state.fFrom)}` : state.fTo ? `${t("until")} ${fmtDay(state.fTo)}` : "";
 const apptMs = s => { if(!s) return 0; const d=new Date(s); return isNaN(d)?0:d.getTime(); };
 const agentLabel = id => { if(!id) return t("unassigned"); const a=state.A.get(id); if(!a) return id; return a.name + (a.deleted?` (${t("deleted")})`:a.active===false?` (${t("inactive")})`:""); };
 const dbError = err => { console.error(err); const el=$("#dbErr"); el.textContent = (err?.code||"") + " " + (err?.message||err); show("#dbErr"); };
@@ -325,10 +339,14 @@ function renderFilters(){
   const months = [...new Set(state.R.map(signedMonth).filter(Boolean))].sort().reverse();
   if (state.fMonth && !months.includes(state.fMonth)) months.unshift(state.fMonth);
   $("#fMonth").innerHTML = opt("",t("allMonths"),state.fMonth) + months.map(m=>opt(m,fmtMonth(m),state.fMonth)).join("");
-  show("#btnClear", !!(state.fAgent||state.fArea||state.fCat||state.fMonth));
+  ["fFrom","fTo"].forEach(id=>{ if (document.activeElement!==$("#"+id)) $("#"+id).value = state[id]; });
+  show("#btnClear", !!(state.fAgent||state.fArea||state.fCat||hasPeriod()));
 }
-["fAgent","fArea","fCat","fMonth"].forEach(id=>$("#"+id).onchange = e=>{ state[id]=e.target.value; render(); });
-$("#btnClear").onclick = ()=>{ state.fAgent=state.fArea=state.fCat=state.fMonth=""; render(); };
+["fAgent","fArea","fCat","fMonth"].forEach(id=>$("#"+id).onchange = e=>{ state[id]=e.target.value; if (id==="fMonth" && state.fMonth) state.fFrom=state.fTo=""; render(); });
+// a date range and a month are two ways to choose the period, so setting one clears the other
+["fFrom","fTo"].forEach(id=>$("#"+id).onchange = e=>{ const v=e.target.value; state[id] = /^\d{4}-\d{2}-\d{2}$/.test(v)?v:""; if (state[id]) state.fMonth="";
+  if (state.fFrom && state.fTo && state.fFrom>state.fTo) [state.fFrom,state.fTo]=[state.fTo,state.fFrom]; render(); });
+$("#btnClear").onclick = ()=>{ state.fAgent=state.fArea=state.fCat=state.fMonth=state.fFrom=state.fTo=""; render(); };
 
 /* ---------- report pieces ---------- */
 const TOP = 12, COLS = 6;
@@ -346,7 +364,7 @@ function kpis(sc, signedP){
   const k = (a,v,s)=>`<div class="kpi"><div class="k">${esc(a)}</div><div class="v num">${Number(v).toLocaleString("en")}</div><div class="s">${esc(s)}</div></div>`;
   return `<div class="kpis">
     ${k(t("kTotal"), sc.length, state.R.length!==sc.length ? t("ofN").replace("{n}",state.R.length.toLocaleString("en")) : " ")}
-    ${state.fMonth ? k(`${t("kSignedP")} ${fmtMonth(state.fMonth)}`, signedP.length, `${signedAll} ${t("contracts")} · ${t("allMonths")}`)
+    ${hasPeriod() ? k(state.fMonth ? `${t("kSignedP")} ${periodLabel()}` : t("kSignedR"), signedP.length, state.fMonth ? `${signedAll} ${t("contracts")} · ${t("allMonths")}` : periodLabel())
                    : k(t("kSigned"), signedAll, `${pct(signedAll,sc.length)}% ${t("pct")}`)}
     ${k(t("kProg"), sc.length-signedAll-fresh, t("kProgS"))}
     ${k(t("kNew"), fresh, `${pct(fresh,sc.length)}% ${t("pct")}`)}
@@ -384,7 +402,7 @@ function agentsTable(scNoAgent, signedPNoAgent){
   if (state.fAgent) rows = rows.filter(a=>a.id===(state.fAgent==="__none"?"":state.fAgent));
   rows.sort((a,b)=> (a.id==="")-(b.id==="") || b.signedP-a.signedP || b.n-a.n);
   if (!rows.length) return panel(t("pAgents"), t("pAgentsH"), none(), true);
-  return panel(t("pAgents"), t("pAgentsH"), `<div class="tw"><table><thead><tr><th>${t("cAgent")}</th><th class="r">${t("cAssigned")}</th><th>${t("cDist")}</th><th class="r">${t("cSigned")}${state.fMonth?` · ${esc(fmtMonth(state.fMonth,true))}`:""}</th><th class="r">${t("cRate")}</th><th class="r">${t("cAppts")}</th></tr></thead><tbody>
+  return panel(t("pAgents"), t("pAgentsH"), `<div class="tw"><table><thead><tr><th>${t("cAgent")}</th><th class="r">${t("cAssigned")}</th><th>${t("cDist")}</th><th class="r">${t("cSigned")}${hasPeriod()?` · ${esc(periodLabel(true))}`:""}</th><th class="r">${t("cRate")}</th><th class="r">${t("cAppts")}</th></tr></thead><tbody>
     ${rows.map(a=>{ const tip = STATUSES.filter(s=>a.st[s]).map(s=>`${t("s_"+s)}: ${a.st[s]}`).join(" · ");
       return `<tr><td><span class="name">${esc(agentLabel(a.id))}</span></td><td class="r num">${a.n}</td>
         <td><div class="mini" title="${esc(tip)}">${STATUSES.map(s=>a.st[s]?`<span style="flex-grow:${a.st[s]};background:var(--s-${s})"></span>`:"").join("")}</div></td>
@@ -423,7 +441,7 @@ function render(){
   renderFilters();
   const el = $("#report");
   if (!state.gotR){ el.innerHTML = `<div class="panel"><div class="empty">${t("loading")}</div></div>`; return; }
-  const inMonth = r => isSigned(r) && (!state.fMonth || signedMonth(r)===state.fMonth);
+  const inMonth = inPeriod;
   const sc = scope(), signedP = sc.filter(inMonth);
   const scNoAgent = scope("agent");
   const areas = byCount(tally(signedP,r=>r._area)), cats = byCount(tally(signedP,r=>r.category));
@@ -442,7 +460,7 @@ $("#report").addEventListener("click",e=>{
   const more = e.target.closest("[data-more]");
   if (more){ state.all[more.dataset.more] = !state.all[more.dataset.more]; render(); return; }
   const mo = e.target.closest("[data-month]");
-  if (mo){ state.fMonth = state.fMonth===mo.dataset.month ? "" : mo.dataset.month; render(); return; }
+  if (mo){ state.fMonth = state.fMonth===mo.dataset.month ? "" : mo.dataset.month; if (state.fMonth) state.fFrom=state.fTo=""; render(); return; }
   const b = e.target.closest("[data-go]"); if(!b) return;
   if (b.dataset.area) state.fArea = b.dataset.area;
   if (b.dataset.cat) state.fCat = b.dataset.cat;
