@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rably · Admin reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="firebase-config.js"></script>
+<style>
+:root{
+  --ink:#141A3D;--ink-2:#2A3266;--paper:#F5F6FA;--card:#FFFFFF;--line:#DFE2EC;--muted:#5C6483;--focus:#3D5AFE;
+  --s-new:#A7AEC6;--s-called_no_appt:#D99A1E;--s-called_appt:#3D5AFE;--s-met_unsigned:#8A4FC9;--s-contract_incomplete:#E0663A;--s-signed:#23875A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.hidden{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--focus)}
+
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px}
+.gate-box{width:min(440px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px}
+.brand{font-weight:700;font-size:26px;letter-spacing:.06em}
+.brand small{display:block;font-size:13px;font-weight:500;letter-spacing:0;color:var(--muted)}
+.gate h1{font-size:20px;margin:18px 0 6px}
+.gate p{color:var(--muted);margin:0 0 16px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px;color:var(--ink-2)}
+input,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.err{color:#C23B3B;font-size:14px;min-height:1.4em;margin-top:8px}
+.banner{background:#FDECEC;color:#8A1C1C;border:1px solid #F3B4B4;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-weight:600}
+
+header.top{background:var(--ink);color:#fff;padding:0 20px;min-height:58px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+header.top .brand{color:#fff;font-size:20px}
+header.top .brand small{display:inline;color:#AFB6D6;margin-inline-start:10px;font-size:13px}
+.top .spacer{flex:1}
+.top .me{font-size:13px;color:#C9CEE6}
+.top .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.25);padding:6px 10px}
+.ro{font-size:12px;font-weight:600;background:rgba(255,255,255,.14);border-radius:999px;padding:3px 10px;color:#fff}
+
+main{padding:20px;max-width:1400px;margin:0 auto}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+.filters select{width:auto;min-width:160px;flex:0 1 220px}
+.filters .grow{flex:1}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.kpi .k{font-size:13px;color:var(--muted);font-weight:600}
+.kpi .v{font-size:28px;font-weight:700;line-height:1.25}
+.kpi .s{font-size:12.5px;color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0}
+.panel.wide{grid-column:1/-1}
+.panel h2{font-size:16px;margin:0}
+.panel .hint{font-size:12.5px;color:var(--muted);margin:2px 0 12px}
+.empty{padding:28px 10px;text-align:center;color:var(--muted)}
+
+.pipe-bar{display:flex;gap:2px;height:16px;border-radius:999px;overflow:hidden;background:#EEF0F6}
+.pipe-bar span{display:block;height:100%}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+.legend .k{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);font-weight:600}
+.legend .v{font-size:20px;font-weight:700}
+.legend .p{font-size:12px;color:var(--muted);margin-inline-start:4px;font-weight:500}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+
+.cols{display:flex;align-items:flex-end;gap:6px;height:210px;padding-top:6px;overflow-x:auto}
+.col{flex:1 1 0;min-width:44px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;background:none;border:0;border-radius:8px;padding:4px 2px;cursor:pointer}
+.col:hover{background:#F2F3F9}
+.col[aria-pressed="true"]{background:#EAF3EE;box-shadow:inset 0 0 0 1px var(--s-signed)}
+.col .n{font-weight:700;font-size:13px}
+.col .b{width:min(34px,70%);background:var(--s-signed);border-radius:4px 4px 0 0;min-height:2px}
+.col .m{font-size:11.5px;color:var(--muted);white-space:nowrap;border-top:1px solid var(--line);width:100%;text-align:center;padding-top:4px}
+
+.bars{display:grid;gap:2px}
+.bar-row{display:grid;grid-template-columns:minmax(90px,32%) 1fr 118px;gap:10px;align-items:center;width:100%;background:none;border:0;border-radius:8px;padding:5px 6px;text-align:start;cursor:pointer}
+.bar-row:hover{background:#F2F3F9}
+.bar-row:disabled{cursor:default;background:none}
+.bar-row .lb{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13.5px}
+.bar-row .tr{height:14px;background:#EEF0F6;border-radius:4px;overflow:hidden}
+.bar-row .tr span{display:block;height:100%;background:var(--s-signed);border-radius:4px;min-width:3px}
+.bars.data .bar-row{grid-template-columns:minmax(120px,44%) 1fr 84px}
+.bars.data .tr span{background:var(--ink-2)}
+.bar-row .n{font-weight:700;white-space:nowrap}
+.bar-row .n small{font-weight:500;color:var(--muted);font-size:12px;margin-inline-start:6px}
+.more{display:flex;justify-content:center;padding:10px 0 0}
+
+.tw{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 10px;text-align:start;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13.5px}
+th{font-size:12.5px;color:var(--muted);font-weight:600;background:#FAFBFD;white-space:nowrap}
+td.r,th.r{text-align:end}
+td .name{font-weight:600}
+td .sub{font-size:12px;color:var(--muted)}
+.mini{display:flex;gap:1px;height:10px;min-width:140px;border-radius:999px;overflow:hidden;background:#EEF0F6}
+.mini span{display:block;height:100%}
+
+table.mx{border-collapse:separate;border-spacing:2px;width:100%}
+table.mx th,table.mx td{border:0;padding:7px 8px;font-size:13px}
+table.mx th{background:none;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+table.mx thead th{font-size:12px;text-align:center;vertical-align:bottom;white-space:normal;min-width:74px}
+table.mx tbody th{color:var(--ink);font-weight:600}
+table.mx td{text-align:center;font-weight:700;border-radius:6px;min-width:52px}
+table.mx td.z{color:#C3C8DA;font-weight:400;background:#FAFBFD}
+table.mx td[data-go]{cursor:pointer}
+table.mx td[data-go]:hover{outline:2px solid var(--ink)}
+table.mx td.tot,table.mx tfoot td{background:none;color:var(--ink)}
+table.mx tfoot th,table.mx tfoot td{border-top:1px solid var(--line);border-radius:0}
+
+@media (max-width:800px){
+  header.top{padding:10px 14px}
+  .top .me{display:none}
+  main{padding:14px}
+  .grid{grid-template-columns:1fr}
+  .filters select{flex:1 1 140px;min-width:0}
+  .bar-row{grid-template-columns:minmax(80px,34%) 1fr auto}
+}
+@media print{
+  header.top{position:static}
+  header.top .btn,.filters,.more{display:none!important}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .panel,.kpi{break-inside:avoid}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<section id="nocfg" class="gate hidden"><div class="gate-box">
+  <div class="brand">RABLY<small data-t="appName"></small></div>
+  <h1 data-t="noCfgTitle"></h1><p data-t="noCfgText"></p>
+  <a class="btn primary" href="index.html" data-t="openApp"></a>
+</div></section>
+
+<section id="login" class="gate hidden">
+  <form class="gate-box" id="loginForm">
+    <div class="brand">RABLY<small data-t="appName"></small></div>
+    <h1 data-t="signIn"></h1><p data-t="signInText"></p>
+    <label for="email" data-t="email"></label><input id="email" type="email" dir="ltr" autocomplete="username" required>
+    <label for="password" data-t="password"></label><input id="password" type="password" dir="ltr" autocomplete="current-password" required>
+    <div class="err" id="loginErr"></div>
+    <div style="display:flex;gap:8px;align-items:center"><button class="btn primary" type="submit" data-t="signIn"></button><span style="flex:1"></span><button class="btn ghost" type="button" data-lang-toggle></button></div>
+  </form>
+</section>
+
+<section id="denied" class="gate hidden"><div class="gate-box">
+  <div class="brand">RABLY<small data-t="appName"></small></div>
+  <h1 data-t="deniedTitle"></h1><p data-t="deniedText"></p>
+  <div style="display:flex;gap:8px"><a class="btn primary" href="index.html" data-t="openApp"></a><button class="btn" id="logout2" data-t="signOut"></button></div>
+</div></section>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="brand">RABLY<small data-t="appName"></small></div>
+    <span class="ro" data-t="readOnly"></span>
+    <span class="spacer"></span>
+    <span class="me" id="me"></span>
+    <a class="btn" href="index.html" data-t="openApp"></a>
+    <button class="btn" id="btnPrint" data-t="print"></button>
+    <button class="btn" data-lang-toggle></button>
+    <button class="btn" id="logout" data-t="signOut"></button>
+  </header>
+  <main>
+    <div id="dbErr" class="banner hidden" role="alert"></div>
+    <div class="filters">
+      <select id="fAgent" aria-label="Agent"></select>
+      <select id="fArea" aria-label="Area"></select>
+      <select id="fCat" aria-label="Speciality"></select>
+      <select id="fMonth" aria-label="Month"></select>
+      <button class="btn hidden" id="btnClear" data-t="clear"></button>
+      <span class="grow"></span>
+    </div>
+    <div id="report"></div>
+  </main>
+</div>
+
+<script type="module">
+// READ-ONLY PORTAL: this page only imports the read functions of Firestore.
+// It contains no code that adds, edits or deletes anything.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, connectAuthEmulator }
+  from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, connectFirestoreEmulator }
+  from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+const STATUSES = ["new","called_no_appt","called_appt","met_unsigned","contract_incomplete","signed"];
+const normSt = s => STATUSES.includes(s) ? s : "new";
+const stOf = r => normSt(r.status);
+const DATA_STATUSES = ["call_send","call_appt","call_noresp","call_followup","sent_phone","photo_full","photo_partial","complete"];
+// Keep this list identical to the one in index.html and firestore.rules.
+const ADMIN_EMAILS = new Set(["morshaheen@gmail.com","sedra.rably@mazmail.online","hamzazahab098@gmail.com","zarad.rably@mazmail.online","mutaz.rably@mazmail.online","roro38126@gmail.com"]);
+
+const T = {
+  ar:{appName:"تقارير الإدارة",readOnly:"عرض فقط",openApp:"فتح التطبيق",print:"طباعة / PDF",signOut:"خروج",lang:"English",clear:"مسح الفلاتر",
+    signIn:"تسجيل الدخول",signInText:"هذه الصفحة للمدراء فقط. استخدم حساب المدير نفسه في التطبيق.",email:"البريد الإلكتروني",password:"كلمة المرور",loginFail:"تعذّر تسجيل الدخول. تحقق من البريد وكلمة المرور.",
+    noCfgTitle:"لا توجد إعدادات Firebase",noCfgText:"لم يتم العثور على إعدادات قاعدة البيانات. افتح التطبيق الرئيسي أولًا.",
+    deniedTitle:"هذه الصفحة للمدراء فقط",deniedText:"حسابك ليس ضمن قائمة المدراء. يمكنك متابعة العمل من التطبيق الرئيسي.",
+    allAgents:"كل المندوبين",unassigned:"غير مُسند",allAreas:"كل المناطق",allCats:"كل التخصصات",allMonths:"كل الأشهر",deleted:"محذوف",inactive:"غير نشط",
+    s_new:"لم يبدأ",s_called_no_appt:"مكالمة + موعد غير محجوز",s_called_appt:"مكالمة + موعد محجوز",s_met_unsigned:"تمت المقابلة دون توقيع",s_contract_incomplete:"عقد غير مكتمل",s_signed:"تم توقيع العقد",
+    d_call_send:"تمت المكالمة + سترسل الداتا على الهاتف",d_call_appt:"تمت المكالمة + تحديد موعد",d_call_noresp:"تمت المكالمة دون تجاوب",d_call_followup:"تمت المكالمة + يجب المتابعة",
+    d_sent_phone:"تم إرسال الداتا عبر الهاتف",d_photo_full:"تم التصوير + داتا مكتملة",d_photo_partial:"تم التصوير + داتا غير مكتملة",d_complete:"الداتا مكتملة",noData:"بدون داتا",
+    kTotal:"المطاعم",kSigned:"عقود موقّعة",kSignedP:"عقود موقّعة في",kProg:"قيد العمل",kProgS:"بدأ العمل ولم يوقَّع بعد",kNew:"لم يبدأ",kAppt:"مواعيد قادمة",kApptS:"من اليوم فصاعدًا",kUn:"غير مُسند",kUnS:"بلا مندوب",
+    ofN:"من {n} مطعم",pct:"من الإجمالي",
+    pPipe:"توزيع الحالات",pPipeH:"كل المطاعم ضمن الفلاتر الحالية (لا يتأثر بفلتر الشهر).",
+    pMonths:"العقود الموقّعة شهريًا",pMonthsH:"اضغط على شهر لعرض تقاريره فقط، واضغط مرة أخرى للإلغاء.",noDate:"عقد بدون تاريخ توقيع",
+    pAgents:"أداء المندوبين",pAgentsH:"المطاعم المسندة لكل مندوب وتوزيع حالاتها. عمود العقود يتبع فلتر الشهر، ونسبة التوقيع محسوبة على كل الفترات.",
+    cAgent:"المندوب",cAssigned:"مُسند",cDist:"توزيع الحالات",cSigned:"عقود",cRate:"نسبة التوقيع",cAppts:"مواعيد قادمة",
+    pArea:"العقود الموقّعة حسب المنطقة",pCat:"العقود الموقّعة حسب تخصص المطعم",barH:"الرقم = عدد العقود، وبجانبه إجمالي المطاعم ونسبة التوقيع. اضغط على سطر لتصفية التقرير.",
+    pMx:"المنطقة × التخصص",pMxH:"عدد العقود الموقّعة لكل تخصص داخل كل منطقة (أعلى 12 منطقة). كلما كان اللون أغمق كان العدد أكبر.",
+    pData:"تقدّم الداتا",pDataH:"عدد المطاعم في كل حالة داتا (لا يتأثر بفلتر الشهر).",
+    pRecent:"أحدث العقود",pRecentH:"آخر 15 عقدًا ضمن الفلاتر الحالية.",cRest:"المطعم",cArea:"المنطقة",cCat:"التخصص",cDate:"تاريخ التوقيع",
+    noArea:"منطقة غير محددة",noCat:"بدون تصنيف",other:"أخرى",total:"المجموع",showAll:"عرض الكل",showLess:"عرض أقل",contracts:"عقد",of:"من",
+    none:"لا توجد عقود موقّعة ضمن الفلاتر الحالية.",loading:"جارٍ تحميل البيانات…"},
+  en:{appName:"Admin reports",readOnly:"Read-only",openApp:"Open the app",print:"Print / PDF",signOut:"Sign out",lang:"العربية",clear:"Clear filters",
+    signIn:"Sign in",signInText:"This page is for admins only. Use the same admin account as the app.",email:"Email",password:"Password",loginFail:"Could not sign in. Check the email and password.",
+    noCfgTitle:"No Firebase config",noCfgText:"The database settings were not found. Open the main app first.",
+    deniedTitle:"This page is for admins only",deniedText:"Your account is not in the admin list. You can keep working in the main app.",
+    allAgents:"All agents",unassigned:"Unassigned",allAreas:"All areas",allCats:"All specialities",allMonths:"All months",deleted:"deleted",inactive:"inactive",
+    s_new:"Not started",s_called_no_appt:"Called – no appointment booked",s_called_appt:"Called – appointment booked",s_met_unsigned:"Met – not signed",s_contract_incomplete:"Contract incomplete",s_signed:"Contract signed",
+    d_call_send:"Called – will send data by phone",d_call_appt:"Called – appointment set",d_call_noresp:"Called – no response",d_call_followup:"Called – follow-up needed",
+    d_sent_phone:"Data sent by phone",d_photo_full:"Photographed – data complete",d_photo_partial:"Photographed – data incomplete",d_complete:"Data complete",noData:"No data status",
+    kTotal:"Restaurants",kSigned:"Signed contracts",kSignedP:"Contracts signed in",kProg:"In progress",kProgS:"started, not signed yet",kNew:"Not started",kAppt:"Upcoming appointments",kApptS:"from today onward",kUn:"Unassigned",kUnS:"no agent",
+    ofN:"of {n} restaurants",pct:"of total",
+    pPipe:"Status breakdown",pPipeH:"All restaurants in the current filters (not affected by the month filter).",
+    pMonths:"Contracts signed per month",pMonthsH:"Click a month to see only its reports; click again to clear.",noDate:"contracts without a signing date",
+    pAgents:"Agent performance",pAgentsH:"Restaurants assigned to each agent and their status mix. The contracts column follows the month filter; sign rate is all-time.",
+    cAgent:"Agent",cAssigned:"Assigned",cDist:"Status mix",cSigned:"Contracts",cRate:"Sign rate",cAppts:"Upcoming appts",
+    pArea:"Signed contracts by area",pCat:"Signed contracts by restaurant speciality",barH:"The number is contracts, followed by total restaurants and the sign rate. Click a row to filter the report.",
+    pMx:"Area × speciality",pMxH:"Signed contracts for each speciality inside each area (top 12 areas). Darker means more.",
+    pData:"Data progress",pDataH:"Restaurants in each data status (not affected by the month filter).",
+    pRecent:"Latest contracts",pRecentH:"The 15 most recent contracts in the current filters.",cRest:"Restaurant",cArea:"Area",cCat:"Speciality",cDate:"Signed on",
+    noArea:"Area not set",noCat:"No category",other:"Other",total:"Total",showAll:"Show all",showLess:"Show less",contracts:"contracts",of:"of",
+    none:"No signed contracts match the current filters.",loading:"Loading data…"}
+};
+let LANG = (()=>{ try{return localStorage.getItem("lang")||"ar"}catch{return "ar"} })();
+const t = k => T[LANG][k] ?? k;
+const $ = s => document.querySelector(s);
+const show = (id,on=true) => $(id).classList.toggle("hidden",!on);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LOC = () => LANG==="ar" ? "ar-SY-u-nu-latn" : "en-GB";
+function applyLang(){
+  document.documentElement.lang = LANG; document.documentElement.dir = LANG==="ar"?"rtl":"ltr";
+  document.querySelectorAll("[data-t]").forEach(el=>el.textContent=t(el.dataset.t));
+  document.querySelectorAll("[data-lang-toggle]").forEach(el=>el.textContent=t("lang"));
+}
+document.addEventListener("click",e=>{
+  if(e.target.closest("[data-lang-toggle]")){ LANG = LANG==="ar"?"en":"ar"; try{localStorage.setItem("lang",LANG)}catch{} applyLang(); render(); }
+});
+applyLang();
+
+function getConfig(){
+  const c = window.FIREBASE_CONFIG;
+  if (c && c.apiKey && !String(c.apiKey).startsWith("PASTE")) return c;
+  try { const s = localStorage.getItem("fbConfig"); if (s) return JSON.parse(s); } catch {}
+  return null;
+}
+const cfg = getConfig();
+if (!cfg){ show("#nocfg"); throw new Error("No Firebase config"); }
+const fb = initializeApp(cfg), auth = getAuth(fb), db = getFirestore(fb);
+if (new URLSearchParams(location.search).has("emulator")) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+}
+
+const state = { user:null, R:[], A:new Map(), gotR:false, fAgent:"", fArea:"", fCat:"", fMonth:"", all:{area:false,cat:false}, unsub:[] };
+function areaOf(r){
+  if (r.area) return r.area;
+  const parts = String(r.address||"").split(",").map(s=>s.trim()).filter(Boolean);
+  const i = parts.findIndex(p=>/^damascus$|^دمشق$/i.test(p));
+  let a = i>0 ? parts[i-1] : (parts.length>=3 ? parts[parts.length-3] : "");
+  if (/^[A-Z0-9]{4}\+[A-Z0-9]{2,3}$/.test(a)) a = "";
+  return a;
+}
+const isSigned = r => stOf(r)==="signed";
+const signedMonth = r => isSigned(r) && r.signedAt ? String(r.signedAt).slice(0,7) : "";
+const fmtMonth = (ym,short) => new Date(ym+"-01T00:00").toLocaleDateString(LOC(), short?{month:"short",year:"2-digit"}:{month:"long",year:"numeric"});
+const fmtDay = d => d ? new Date(String(d).slice(0,10)+"T00:00").toLocaleDateString(LOC(),{day:"numeric",month:"short",year:"numeric"}) : "—";
+const apptMs = s => { if(!s) return 0; const d=new Date(s); return isNaN(d)?0:d.getTime(); };
+const agentLabel = id => { if(!id) return t("unassigned"); const a=state.A.get(id); if(!a) return id; return a.name + (a.deleted?` (${t("deleted")})`:a.active===false?` (${t("inactive")})`:""); };
+const dbError = err => { console.error(err); const el=$("#dbErr"); el.textContent = (err?.code||"") + " " + (err?.message||err); show("#dbErr"); };
+
+onAuthStateChanged(auth, user=>{
+  state.unsub.forEach(u=>u()); state.unsub=[]; state.user=user; state.gotR=false;
+  ["#login","#denied","#app"].forEach(id=>show(id,false));
+  if (!user){ show("#login"); return; }
+  if (!ADMIN_EMAILS.has((user.email||"").trim().toLowerCase())){ show("#denied"); return; }
+  show("#app"); $("#me").textContent = user.email; render();
+  state.unsub.push(onSnapshot(collection(db,"agents"), snap=>{ state.A = new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}])); render(); }, dbError));
+  state.unsub.push(onSnapshot(collection(db,"restaurants"), snap=>{
+    state.R = snap.docs.map(d=>{ const r={id:d.id,...d.data()}; r._area=areaOf(r); return r; });
+    state.gotR = true; show("#dbErr",false); render();
+  }, dbError));
+});
+$("#loginForm").onsubmit = async e=>{
+  e.preventDefault(); $("#loginErr").textContent="";
+  try{ await signInWithEmailAndPassword(auth, $("#email").value.trim(), $("#password").value); }
+  catch(err){ console.error(err); $("#loginErr").textContent = t("loginFail") + (err?.code?`  [${err.code}]`:""); }
+};
+$("#logout").onclick = $("#logout2").onclick = ()=>signOut(auth);
+$("#btnPrint").onclick = ()=>window.print();
+
+/* ---------- filters ---------- */
+function scope(skip){ // agent / area / speciality filters; "skip" leaves one of them out
+  return state.R.filter(r=>{
+    if (skip!=="agent"){ if (state.fAgent==="__none" && r.assignedTo) return false; if (state.fAgent && state.fAgent!=="__none" && r.assignedTo!==state.fAgent) return false; }
+    if (skip!=="area" && state.fArea && r._area!==state.fArea) return false;
+    if (skip!=="cat" && state.fCat && r.category!==state.fCat) return false;
+    return true;
+  });
+}
+const opt = (v,label,sel) => `<option value="${esc(v)}"${v===sel?" selected":""}>${esc(label)}</option>`;
+function renderFilters(){
+  const used = new Set(state.R.map(r=>r.assignedTo).filter(Boolean));
+  const agents = [...state.A.values()].filter(a=>!a.deleted || used.has(a.id)).sort((a,b)=>String(a.name).localeCompare(String(b.name),LANG));
+  $("#fAgent").innerHTML = opt("",t("allAgents"),state.fAgent) + opt("__none",t("unassigned"),state.fAgent) + agents.map(a=>opt(a.id,agentLabel(a.id),state.fAgent)).join("");
+  const uniq = f => [...new Set(state.R.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  $("#fArea").innerHTML = opt("",t("allAreas"),state.fArea) + uniq(r=>r._area).map(v=>opt(v,v,state.fArea)).join("");
+  $("#fCat").innerHTML = opt("",t("allCats"),state.fCat) + uniq(r=>r.category).map(v=>opt(v,v,state.fCat)).join("");
+  const months = [...new Set(state.R.map(signedMonth).filter(Boolean))].sort().reverse();
+  if (state.fMonth && !months.includes(state.fMonth)) months.unshift(state.fMonth);
+  $("#fMonth").innerHTML = opt("",t("allMonths"),state.fMonth) + months.map(m=>opt(m,fmtMonth(m),state.fMonth)).join("");
+  show("#btnClear", !!(state.fAgent||state.fArea||state.fCat||state.fMonth));
+}
+["fAgent","fArea","fCat","fMonth"].forEach(id=>$("#"+id).onchange = e=>{ state[id]=e.target.value; render(); });
+$("#btnClear").onclick = ()=>{ state.fAgent=state.fArea=state.fCat=state.fMonth=""; render(); };
+
+/* ---------- report pieces ---------- */
+const TOP = 12, COLS = 6;
+function tally(list,keyFn){ const m=new Map(); list.forEach(r=>{ const k=keyFn(r)||""; m.set(k,(m.get(k)||0)+1); }); return m; }
+const byCount = m => [...m.entries()].sort((a,b)=> b[1]-a[1] || (a[0]===""?1:b[0]===""?-1:a[0].localeCompare(b[0],LANG)));
+const pct = (n,d) => d ? Math.round(n*100/d) : 0;
+const panel = (title,hint,body,wide) => `<section class="panel${wide?" wide":""}"><h2>${title}</h2><p class="hint">${hint}</p>${body}</section>`;
+const none = () => `<div class="empty">${t("none")}</div>`;
+
+function kpis(sc, signedP){
+  const signedAll = sc.filter(isSigned).length, fresh = sc.filter(r=>stOf(r)==="new").length;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const appts = sc.filter(r=>apptMs(r.appointmentAt)>=today.getTime()).length;
+  const un = sc.filter(r=>!r.assignedTo).length;
+  const k = (a,v,s)=>`<div class="kpi"><div class="k">${esc(a)}</div><div class="v num">${Number(v).toLocaleString("en")}</div><div class="s">${esc(s)}</div></div>`;
+  return `<div class="kpis">
+    ${k(t("kTotal"), sc.length, state.R.length!==sc.length ? t("ofN").replace("{n}",state.R.length.toLocaleString("en")) : " ")}
+    ${state.fMonth ? k(`${t("kSignedP")} ${fmtMonth(state.fMonth)}`, signedP.length, `${signedAll} ${t("contracts")} · ${t("allMonths")}`)
+                   : k(t("kSigned"), signedAll, `${pct(signedAll,sc.length)}% ${t("pct")}`)}
+    ${k(t("kProg"), sc.length-signedAll-fresh, t("kProgS"))}
+    ${k(t("kNew"), fresh, `${pct(fresh,sc.length)}% ${t("pct")}`)}
+    ${k(t("kAppt"), appts, t("kApptS"))}
+    ${k(t("kUn"), un, t("kUnS"))}</div>`;
+}
+function pipeline(sc){
+  const c = Object.fromEntries(STATUSES.map(s=>[s,0])); sc.forEach(r=>c[stOf(r)]++);
+  return panel(t("pPipe"), t("pPipeH"), `<div class="pipe-bar">${STATUSES.map(s=>`<span title="${esc(t("s_"+s))}: ${c[s]}" style="flex-grow:${c[s]};background:var(--s-${s})"></span>`).join("")}</div>
+    <div class="legend">${STATUSES.map(s=>`<div><div class="k"><span class="dot" style="background:var(--s-${s})"></span>${esc(t("s_"+s))}</div><div class="v num">${c[s]}<span class="p">${pct(c[s],sc.length)}%</span></div></div>`).join("")}</div>`, true);
+}
+function monthly(sc){
+  const signed = sc.filter(isSigned), m = tally(signed, signedMonth), undated = m.get("")||0; m.delete("");
+  if (!m.size) return panel(t("pMonths"), t("pMonthsH"), none());
+  const keys = [...m.keys()].sort(); let [y,mo] = keys[0].split("-").map(Number); const last = keys[keys.length-1], seq = [];
+  for (let g=0; g<240; g++){ const k = `${y}-${String(mo).padStart(2,"0")}`; seq.push(k); if (k>=last) break; if (++mo>12){ mo=1; y++; } }
+  const shown = seq.slice(-12), max = Math.max(...shown.map(k=>m.get(k)||0), 1);
+  return panel(t("pMonths"), t("pMonthsH"), `<div class="cols">${shown.map(k=>{ const n=m.get(k)||0;
+      return `<button type="button" class="col" data-month="${k}" aria-pressed="${state.fMonth===k}" title="${esc(fmtMonth(k))}: ${n} ${esc(t("contracts"))}"><span class="n num">${n}</span><span class="b" style="height:${(n*78/max).toFixed(1)}%"></span><span class="m">${esc(fmtMonth(k,true))}</span></button>`; }).join("")}</div>
+    ${undated?`<p class="hint" style="margin:10px 0 0">${undated} ${t("noDate")}</p>`:""}`);
+}
+function dataProgress(sc){
+  const m = tally(sc, r=>DATA_STATUSES.includes(r.dataStatus)?r.dataStatus:"");
+  const rows = [...DATA_STATUSES.map(d=>[t("d_"+d), m.get(d)||0]), [t("noData"), m.get("")||0]];
+  const max = Math.max(...rows.map(r=>r[1]),1);
+  return panel(t("pData"), t("pDataH"), `<div class="bars data">${rows.map(([name,n])=>`<button type="button" class="bar-row" disabled title="${esc(name)}: ${n}"><span class="lb">${esc(name)}</span><span class="tr">${n?`<span style="width:${(n*100/max).toFixed(1)}%"></span>`:""}</span><span class="n num">${n}<small>${pct(n,sc.length)}%</small></span></button>`).join("")}</div>`);
+}
+function agentsTable(scNoAgent, signedPNoAgent){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const g = new Map(); const get = id => g.get(id) || g.set(id,{id,n:0,st:{},signedP:0,appts:0}).get(id);
+  scNoAgent.forEach(r=>{ const a=get(r.assignedTo||""); a.n++; a.st[stOf(r)]=(a.st[stOf(r)]||0)+1; if (apptMs(r.appointmentAt)>=today.getTime()) a.appts++; });
+  signedPNoAgent.forEach(r=>{ get(r.assignedTo||"").signedP++; });
+  [...state.A.values()].filter(a=>!a.deleted).forEach(a=>get(a.id));
+  let rows = [...g.values()];
+  if (state.fAgent) rows = rows.filter(a=>a.id===(state.fAgent==="__none"?"":state.fAgent));
+  rows.sort((a,b)=> (a.id==="")-(b.id==="") || b.signedP-a.signedP || b.n-a.n);
+  if (!rows.length) return panel(t("pAgents"), t("pAgentsH"), none(), true);
+  return panel(t("pAgents"), t("pAgentsH"), `<div class="tw"><table><thead><tr><th>${t("cAgent")}</th><th class="r">${t("cAssigned")}</th><th>${t("cDist")}</th><th class="r">${t("cSigned")}${state.fMonth?` · ${esc(fmtMonth(state.fMonth,true))}`:""}</th><th class="r">${t("cRate")}</th><th class="r">${t("cAppts")}</th></tr></thead><tbody>
+    ${rows.map(a=>{ const tip = STATUSES.filter(s=>a.st[s]).map(s=>`${t("s_"+s)}: ${a.st[s]}`).join(" · ");
+      return `<tr><td><span class="name">${esc(agentLabel(a.id))}</span></td><td class="r num">${a.n}</td>
+        <td><div class="mini" title="${esc(tip)}">${STATUSES.map(s=>a.st[s]?`<span style="flex-grow:${a.st[s]};background:var(--s-${s})"></span>`:"").join("")}</div></td>
+        <td class="r num"><b>${a.signedP}</b></td><td class="r num">${a.n?pct(a.st.signed||0,a.n)+"%":"—"}</td><td class="r num">${a.appts}</td></tr>`; }).join("")}
+    </tbody></table></div>`, true);
+}
+function bars(kind, entries, totals, emptyLabel){
+  if (!entries.length) return none();
+  const max = entries[0][1], all = state.all[kind], rows = all ? entries : entries.slice(0,TOP);
+  return `<div class="bars">${rows.map(([k,n])=>{ const tot=Math.max(totals.get(k)||0,n), name=k||emptyLabel;
+      return `<button type="button" class="bar-row" ${k?`data-go data-${kind}="${esc(k)}"`:"disabled"} title="${esc(name)}: ${n} ${esc(t("contracts"))} / ${tot}"><span class="lb">${esc(name)}</span><span class="tr"><span style="width:${(n*100/max).toFixed(1)}%"></span></span><span class="n num">${n}<small>${t("of")} ${tot} · ${pct(n,tot)}%</small></span></button>`; }).join("")}</div>
+    ${entries.length>TOP?`<div class="more"><button type="button" class="btn" data-more="${kind}">${all?t("showLess"):`${t("showAll")} (${entries.length})`}</button></div>`:""}`;
+}
+function matrix(signed, areas, cats){
+  if (!signed.length) return none();
+  const rowsA = areas.slice(0,TOP).map(e=>e[0]), colsC = cats.slice(0,COLS).map(e=>e[0]), other = cats.length>COLS, O="\u0002", J="\u0001";
+  const cell = new Map(); let mx = 1;
+  signed.forEach(r=>{ const a=r._area||"", c=r.category||""; if(!rowsA.includes(a)) return; const k=a+J+(colsC.includes(c)?c:O), v=(cell.get(k)||0)+1; cell.set(k,v); if(v>mx) mx=v; });
+  const td = (a,c,real)=>{ const n=cell.get(a+J+c)||0; if(!n) return `<td class="z">·</td>`;
+    const f=n/mx, go = a&&real&&c ? ` data-go data-area="${esc(a)}" data-cat="${esc(c)}"` : "";
+    return `<td class="num"${go} title="${esc(a||t("noArea"))} · ${esc(real?(c||t("noCat")):t("other"))}: ${n}" style="background:rgba(35,135,90,${(0.14+0.76*f).toFixed(2)});color:${f>0.45?"#fff":"var(--ink)"}">${n}</td>`; };
+  const colTot = c => rowsA.reduce((s,a)=>s+(cell.get(a+J+c)||0),0), rowTot = a => [...colsC,O].reduce((s,c)=>s+(cell.get(a+J+c)||0),0);
+  return `<div class="tw"><table class="mx"><thead><tr><th></th>${colsC.map(c=>`<th>${esc(c||t("noCat"))}</th>`).join("")}${other?`<th>${t("other")}</th>`:""}<th>${t("total")}</th></tr></thead>
+    <tbody>${rowsA.map(a=>`<tr><th title="${esc(a||t("noArea"))}">${esc(a||t("noArea"))}</th>${colsC.map(c=>td(a,c,true)).join("")}${other?td(a,O,false):""}<td class="tot num">${rowTot(a)}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><th>${t("total")}</th>${colsC.map(c=>`<td class="num">${colTot(c)}</td>`).join("")}${other?`<td class="num">${colTot(O)}</td>`:""}<td class="num">${rowsA.reduce((s,a)=>s+rowTot(a),0)}</td></tr></tfoot></table></div>`;
+}
+function recent(signedP){
+  if (!signedP.length) return panel(t("pRecent"), t("pRecentH"), none(), true);
+  const rows = [...signedP].sort((a,b)=>String(b.signedAt||"").localeCompare(String(a.signedAt||""))).slice(0,15);
+  return panel(t("pRecent"), t("pRecentH"), `<div class="tw"><table><thead><tr><th>${t("cRest")}</th><th>${t("cArea")}</th><th>${t("cCat")}</th><th>${t("cAgent")}</th><th>${t("cDate")}</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><span class="name">${esc(r.name)}</span></td><td>${esc(r._area||"—")}</td><td>${esc(r.category||"—")}</td><td>${esc(agentLabel(r.assignedTo))}</td><td class="num" style="white-space:nowrap">${esc(fmtDay(r.signedAt))}</td></tr>`).join("")}</tbody></table></div>`, true);
+}
+
+function render(){
+  if (!state.user || $("#app").classList.contains("hidden")) return;
+  renderFilters();
+  const el = $("#report");
+  if (!state.gotR){ el.innerHTML = `<div class="panel"><div class="empty">${t("loading")}</div></div>`; return; }
+  const inMonth = r => isSigned(r) && (!state.fMonth || signedMonth(r)===state.fMonth);
+  const sc = scope(), signedP = sc.filter(inMonth);
+  const scNoAgent = scope("agent");
+  const areas = byCount(tally(signedP,r=>r._area)), cats = byCount(tally(signedP,r=>r.category));
+  el.innerHTML = kpis(sc, signedP) + `<div class="grid">
+    ${pipeline(sc)}
+    ${monthly(sc)}
+    ${dataProgress(sc)}
+    ${agentsTable(scNoAgent, scNoAgent.filter(inMonth))}
+    ${panel(t("pArea"), t("barH"), bars("area",areas,tally(sc,r=>r._area),t("noArea")))}
+    ${panel(t("pCat"), t("barH"), bars("cat",cats,tally(sc,r=>r.category),t("noCat")))}
+    ${panel(t("pMx"), t("pMxH"), matrix(signedP,areas,cats), true)}
+    ${recent(signedP)}
+  </div>`;
+}
+$("#report").addEventListener("click",e=>{
+  const more = e.target.closest("[data-more]");
+  if (more){ state.all[more.dataset.more] = !state.all[more.dataset.more]; render(); return; }
+  const mo = e.target.closest("[data-month]");
+  if (mo){ state.fMonth = state.fMonth===mo.dataset.month ? "" : mo.dataset.month; render(); return; }
+  const b = e.target.closest("[data-go]"); if(!b) return;
+  if (b.dataset.area) state.fArea = b.dataset.area;
+  if (b.dataset.cat) state.fCat = b.dataset.cat;
+  render(); window.scrollTo({top:0});
+});
+</script>
+</body>
+</html>
